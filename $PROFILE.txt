@@ -1,0 +1,29 @@
+function pantau-ke {
+    param(
+        [int]$Urutan = 1,
+        [int]$Baris = 35
+    )
+
+    $index = [Math]::Max(0, $Urutan - 1)
+
+    while ($true) {
+        Clear-Host
+
+        $files = Get-ChildItem -Recurse -File -Exclude .git,vendor,node_modules,storage,bootstrap |
+            Sort-Object LastWriteTime -Descending
+
+        $target = $files | Select-Object -Skip $index -First 1
+
+        if ($target) {
+            Write-Host "=== PANEL URUTAN #$Urutan : $($target.Name) ===" -ForegroundColor Cyan
+            Write-Host "Path  : $($target.FullName)" -ForegroundColor DarkGray
+            Write-Host "Update: $($target.LastWriteTime)" -ForegroundColor DarkGray
+            Write-Host ("-" * 60) -ForegroundColor DarkGray
+            Get-Content $target.FullName -Tail $Baris
+        } else {
+            Write-Host "Tidak ada file ke-$Urutan yang ditemukan." -ForegroundColor Yellow
+        }
+
+        Start-Sleep -Seconds 2
+    }
+}

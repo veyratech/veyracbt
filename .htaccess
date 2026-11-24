@@ -1,0 +1,56 @@
+# CBT Online Multi-Tenant
+<IfModule mod_autoindex.c>
+    Options -Indexes
+</IfModule>
+
+# Block akses langsung ke file sensitif, file konfigurasi, & source control
+<FilesMatch "(\.(sql|log|md|lock|json|yml|yaml)$|^\.env|composer\.(json|lock))">
+    Require all denied
+</FilesMatch>
+
+# Lindungi file tersembunyi (dotfiles seperti .git, .env)
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "^\.(htaccess|htpasswd)$">
+    Require all denied
+</FilesMatch>
+
+# Security Headers
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://fonts.googleapis.com https://api.qrserver.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com; img-src 'self' data: blob: https: http:; media-src 'self' data: blob: https: http:; frame-src 'self' https://www.youtube.com https://www.youtube-nocookie.com; connect-src 'self' https:; frame-ancestors 'self' https://veyracreative.site; base-uri 'self'; form-action 'self' https://veyracreative.site"
+    Header set Permissions-Policy "camera=(self), microphone=(), geolocation=(), fullscreen=(self)"
+</IfModule>
+
+# Use custom session directory for this project (absolute path)
+<IfModule mod_php.c>
+    php_value session.save_path "C:/xampp/htdocs/cbtonline/.sessions"
+</IfModule>
+
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Production: redirect www -> non-www
+    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+    RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+    # Production: wildcard subdomain routing ke index.php (hanya jika bukan file/folder fisik)
+    RewriteCond %{HTTP_HOST} ^([a-z0-9\-]+)\.[^.]+\.[a-z]{2,}$ [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/sso/ [NC]
+    RewriteCond %{REQUEST_URI} !^/api/ [NC]
+    RewriteRule ^(.*)$ index.php [L,QSA]
+
+    # Production: root domain routing (hanya jika bukan file/folder fisik)
+    RewriteCond %{HTTP_HOST} ^[^.]+\.[^.]+$ [NC]
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteCond %{REQUEST_URI} !^/sso/ [NC]
+    RewriteCond %{REQUEST_URI} !^/api/ [NC]
+    RewriteRule ^(.*)$ index.php [L,QSA]
+</IfModule>

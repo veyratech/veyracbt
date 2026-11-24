@@ -1,0 +1,2 @@
+# Larang akses langsung ke script cron via HTTP
+Require all denied

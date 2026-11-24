@@ -1,0 +1,2 @@
+# Larang akses langsung ke file database / skema / seed
+Require all denied
