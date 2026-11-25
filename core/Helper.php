@@ -519,6 +519,7 @@ class Helper {
                 $newStoredPath = preg_replace('/\.png$/i', '.jpg', $path);
                 if ($newStoredPath !== $path) {
                     @rename($realPath, $newStoredPath);
+                    $realPath = realpath($newStoredPath) ?: $newStoredPath;
                 }
             }
             imagedestroy($jpeg);
@@ -531,6 +532,7 @@ class Helper {
                 $newStoredPath = preg_replace('/\.gif$/i', '.jpg', $path);
                 if ($newStoredPath !== $path) {
                     @rename($realPath, $newStoredPath);
+                    $realPath = realpath($newStoredPath) ?: $newStoredPath;
                 }
             }
         }
