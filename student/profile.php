@@ -14,7 +14,7 @@ $pageKey   = 'profile';
 // ── Handle photo upload FIRST (before header renders) ─────────
 $photoMsg    = '';
 $photoError  = '';
-$tmpPhotoUrl = null; // path preview sementara untuk sidebar setelah upload
+$tmpPhotoUrl = null;
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
     $file = $_FILES['photo'];
     if ($file['error'] !== UPLOAD_ERR_OK) {
@@ -40,7 +40,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
             if (!is_dir($destDir)) mkdir($destDir, 0755, true);
             $dest  = $destDir . '/' . $name;
             if (move_uploaded_file($file['tmp_name'], $dest)) {
-                // Remove old photo file
                 if (!empty($student['photo'])) {
                     foreach ([__DIR__ . '/' . ltrim($student['photo'], '/'),
                              __DIR__ . '/../' . ltrim($student['photo'], '/')] as $old) {
@@ -49,7 +48,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
                 }
                 Database::update('students', ['photo' => "assets/uploads/students/$name"],
                     'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
-                // Refresh session & local var
                 $fresh = Database::fetch(
                     "SELECT s.*, c.name as class_name
                      FROM students s LEFT JOIN classes c ON s.class_id = c.id
@@ -61,7 +59,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
                     $_SESSION['auth_user'] = $fresh;
                     $student = $fresh;
                 }
-                // Simpan path sementara agar sidebar tetap tampil foto baru meski refresh berikutnya gagal
                 $tmpPhotoUrl = '../assets/uploads/students/' . $name;
                 $photoMsg = 'Foto profil berhasil diperbarui!';
             } else {
@@ -97,138 +94,467 @@ if ($freshAfterPost) {
     $student                = $freshAfterPost;
 }
 
-// Pakai path sementara jika upload baru saja berhasil (mencegah flashfoto lama)
 if ($tmpPhotoUrl && !$photoError) {
     $photoUrl = $tmpPhotoUrl;
 } else {
     $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
 }
+
+require_once __DIR__ . '/header.php';
 ?>
 
 <style>
-.prof-wrap{max-width:680px;margin:0 auto;}
-.prof-card{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:28px;margin-bottom:20px;box-shadow:0 2px 12px rgba(0,0,0,.04);}
+/* ── Profile Page Custom Styles ─────────────────────────── */
+.prof-page { display: flex; justify-content: center; padding: 24px 16px 48px; }
 
-/* Photo Upload */
-.photo-upload-area{text-align:center;margin-bottom:24px;}
-.photo-preview{
-    width:110px;height:110px;border-radius:50%;
-    background:linear-gradient(135deg,#e0e7ff,#dbeafe);
-    display:flex;align-items:center;justify-content:center;
-    margin:0 auto 14px;font-size:36px;font-weight:900;color:#0284c7;
-    border:3px dashed var(--border);overflow:hidden;cursor:pointer;
-    transition:all .2s cubic-bezier(.34,1.56,.64,1);position:relative;
+.prof-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+    width: 100%;
+    max-width: 640px;
+    overflow: hidden;
+    box-shadow: 0 4px 24px rgba(0,0,0,.06);
 }
-.photo-preview:hover{border-color:#0284c7;background:linear-gradient(135deg,#dbeafe,#bfdbfe);transform:scale(1.05);box-shadow:0 8px 24px rgba(2,132,199,.2);}
-.photo-preview img{width:100%;height:100%;object-fit:cover;border-radius:50%;}
-.photo-preview .photo-overlay{
-    position:absolute;inset:0;background:rgba(0,0,0,.45);
-    display:flex;align-items:center;justify-content:center;
-    opacity:0;transition:opacity .2s;border-radius:50%;
+
+/* Header Banner */
+.prof-banner {
+    height: 110px;
+    background: linear-gradient(135deg, #0b63e5 0%, #0ea5e9 50%, #06b6d4 100%);
+    position: relative;
+    overflow: hidden;
 }
-.photo-preview:hover .photo-overlay{opacity:1;}
-.photo-overlay svg{width:22px;height:22px;stroke:#fff;fill:none;stroke-width:2;}
-.photo-hint{font-size:11px;color:var(--muted);margin-top:6px;}
-.photo-hint span{color:#0284c7;font-weight:700;}
-.photo-input-hidden{display:none;}
+.prof-banner::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.06'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+}
+.prof-banner .banner-decoration {
+    position: absolute;
+    bottom: -30px;
+    right: -20px;
+    width: 160px;
+    height: 160px;
+    background: rgba(255,255,255,.08);
+    border-radius: 50%;
+}
+.prof-banner .banner-decoration2 {
+    position: absolute;
+    top: -50px;
+    right: 60px;
+    width: 100px;
+    height: 100px;
+    background: rgba(255,255,255,.05);
+    border-radius: 50%;
+}
 
-.alert-success{background:#f0fdf4;border:1px solid #bbf7d0;color:#166534;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
-.alert-danger{background:#fef2f2;border:1px solid #fecaca;color:#991b1b;padding:11px 16px;border-radius:10px;font-size:13px;font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:7px;}
+/* Avatar Section */
+.prof-avatar-section {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    padding: 0 28px 20px;
+    margin-top: -48px;
+    position: relative;
+    z-index: 2;
+}
+.prof-avatar-wrap {
+    position: relative;
+    flex-shrink: 0;
+    cursor: pointer;
+    group: avatar;
+}
+.prof-avatar-ring {
+    width: 96px;
+    height: 96px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #e0e7ff, #bfdbfe);
+    border: 4px solid #fff;
+    box-shadow: 0 4px 16px rgba(0,0,0,.15);
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: transform .2s cubic-bezier(.34,1.56,.64,1), box-shadow .2s;
+    position: relative;
+}
+.prof-avatar-wrap:hover .prof-avatar-ring {
+    transform: scale(1.06);
+    box-shadow: 0 8px 28px rgba(2,132,199,.25);
+}
+.prof-avatar-ring img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 50%;
+}
+.prof-avatar-ring .avatar-initial {
+    font-size: 32px;
+    font-weight: 900;
+    color: #0284c7;
+}
+.prof-avatar-overlay {
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background: rgba(0,0,0,.4);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity .2s;
+}
+.prof-avatar-wrap:hover .prof-avatar-overlay { opacity: 1; }
+.prof-avatar-overlay svg { width: 22px; height: 22px; stroke: #fff; fill: none; stroke-width: 2; }
+.prof-avatar-badge {
+    position: absolute;
+    bottom: 2px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(2,132,199,.92);
+    color: #fff;
+    font-size: 8.5px;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 999px;
+    white-space: nowrap;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity .2s;
+    box-shadow: 0 2px 8px rgba(2,132,199,.4);
+}
+.prof-avatar-badge.show { opacity: 1; }
+.photo-input-hidden { display: none; }
 
-.prof-name{font-size:20px;font-weight:800;text-align:center;color:var(--text);margin-bottom:2px;}
-.field-group{margin-bottom:14px;}
-.field-label{font-size:11px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block;}
-.field-input{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:var(--bg);outline:none;font-family:inherit;transition:border-color .15s;}
-.field-input:focus{border-color:#0284c7;background:#fff;}
-.field-readonly{width:100%;padding:11px 14px;border:1.5px solid var(--border);border-radius:10px;font-size:14px;background:#f8fafc;color:var(--muted);}
-.btn-save{padding:12px 32px;background:linear-gradient(135deg,#0284c7,#0ea5e9);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;transition:all .2s;box-shadow:0 2px 10px rgba(2,132,199,.25);}
-.btn-save:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(2,132,199,.35);}
-.section-title{font-size:12px;font-weight:800;color:var(--text);text-transform:uppercase;letter-spacing:.8px;margin-bottom:14px;display:flex;align-items:center;gap:8px;}
-.section-title::after{content:'';flex:1;height:1px;background:var(--border);}
+.prof-user-info {
+    padding-bottom: 8px;
+    flex: 1;
+    min-width: 0;
+}
+.prof-user-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--text);
+    line-height: 1.2;
+    margin-bottom: 3px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.prof-user-meta {
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.prof-user-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+}
+.prof-user-meta .meta-dot {
+    width: 3px;
+    height: 3px;
+    background: var(--muted);
+    border-radius: 50%;
+    opacity: .5;
+}
+
+/* Body Section */
+.prof-body { padding: 4px 28px 28px; }
+
+/* Section Title */
+.prof-section-title {
+    font-size: 10px;
+    font-weight: 800;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    margin: 24px 0 12px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.prof-section-title::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+}
+.prof-section-title:first-child { margin-top: 4px; }
+
+/* Alert Boxes */
+.alert-success {
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border: 1px solid #bbf7d0;
+    color: #166534;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideDown .3s ease;
+}
+.alert-danger {
+    background: linear-gradient(135deg, #fef2f2, #fff1f2);
+    border: 1px solid #fecaca;
+    color: #991b1b;
+    padding: 12px 16px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    animation: slideDown .3s ease;
+}
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Info Grid */
+.prof-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-bottom: 20px;
+}
+.prof-field { display: flex; flex-direction: column; gap: 5px; }
+.prof-field.full { grid-column: 1 / -1; }
+.prof-field-label {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: .6px;
+}
+.prof-field-input {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    background: var(--bg);
+    outline: none;
+    font-family: inherit;
+    transition: border-color .15s, box-shadow .15s;
+    color: var(--text);
+}
+.prof-field-input:focus {
+    border-color: #0284c7;
+    box-shadow: 0 0 0 3px rgba(2,132,199,.1);
+    background: #fff;
+}
+.prof-field-readonly {
+    width: 100%;
+    padding: 11px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-size: 14px;
+    background: #f8fafc;
+    color: var(--muted);
+    font-family: inherit;
+}
+
+/* Save Button */
+.prof-save-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 8px;
+}
+.btn-save {
+    padding: 12px 36px;
+    background: linear-gradient(135deg, #0284c7, #0ea5e9);
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .2s;
+    box-shadow: 0 4px 14px rgba(2,132,199,.3);
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+}
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 24px rgba(2,132,199,.4);
+}
+.btn-save:active { transform: translateY(0); }
+.btn-save svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 2.2; }
+.save-hint {
+    font-size: 11.5px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+.save-hint svg { width: 13px; height: 13px; stroke: var(--muted); fill: none; stroke-width: 2; }
+
+/* Photo Hint */
+.prof-photo-hint {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 8px;
+    font-size: 11px;
+    color: var(--muted);
+}
+.prof-photo-hint svg { width: 13px; height: 13px; stroke: var(--muted); fill: none; stroke-width: 2; flex-shrink: 0; }
+.prof-photo-hint span { color: #0284c7; font-weight: 700; }
+
+@media (max-width: 600px) {
+    .prof-page { padding: 16px 12px 32px; }
+    .prof-card { border-radius: 18px; }
+    .prof-banner { height: 80px; }
+    .prof-avatar-section { padding: 0 20px 16px; margin-top: -36px; }
+    .prof-avatar-ring { width: 76px; height: 76px; }
+    .prof-avatar-ring .avatar-initial { font-size: 26px; }
+    .prof-user-name { font-size: 16px; }
+    .prof-body { padding: 4px 20px 24px; }
+    .prof-grid { grid-template-columns: 1fr; }
+    .prof-section-title { margin: 20px 0 10px; }
+}
 </style>
 
-<div class="prof-wrap">
+<div class="prof-page">
     <div class="prof-card">
-        <div class="section-title">Foto Profil</div>
 
-        <div class="photo-upload-area">
-            <div class="photo-preview" id="photoPreview">
-                <?php if ($photoUrl): ?>
-                    <img src="<?= Helper::cacheBust(htmlspecialchars($photoUrl)) ?>" alt="Foto" id="previewImg">
-                <?php else: ?>
-                    <span id="photoInit"><?= mb_substr($student['name'] ?? 'S', 0, 1) ?></span>
-                <?php endif; ?>
-                <div class="photo-overlay">
-                    <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
-                </div>
-                <div id="photoBadge" style="display:none;position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(2,132,199,.9);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;">✓ Foto baru siap disimpan</div>
-            </div>
-            <input type="file" class="photo-input-hidden" id="photoInput" name="photo" accept="image/jpeg,image/png,image/webp">
-            <div class="photo-hint">Klik foto untuk mengganti &#xB7; Maks 3 MB &#xB7; JPG / PNG / WEBP &#xB7; Klik Simpan setelah memilih</div>
-            <?php if ($photoMsg): ?><div class="alert-success">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><?= htmlspecialchars($photoMsg) ?></div><?php endif; ?>
-            <?php if ($photoError): ?><div class="alert-danger">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><?= htmlspecialchars($photoError) ?></div><?php endif; ?>
+        <!-- Banner -->
+        <div class="prof-banner">
+            <div class="banner-decoration"></div>
+            <div class="banner-decoration2"></div>
         </div>
 
-        <div class="section-title" style="margin-top:20px;">Informasi Pribadi</div>
+        <!-- Avatar + User Info -->
+        <div class="prof-avatar-section">
+            <div class="prof-avatar-wrap" id="avatarWrap">
+                <div class="prof-avatar-ring" id="avatarRing">
+                    <?php if ($photoUrl): ?>
+                        <img src="<?= Helper::cacheBust(htmlspecialchars($photoUrl)) ?>" alt="Foto" id="previewImg">
+                    <?php else: ?>
+                        <span class="avatar-initial"><?= mb_substr($student['name'] ?? 'S', 0, 1) ?></span>
+                    <?php endif; ?>
+                    <div class="prof-avatar-overlay">
+                        <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    </div>
+                </div>
+                <div class="prof-avatar-badge" id="photoBadge">✓ Siap disimpan</div>
+                <input type="file" class="photo-input-hidden" id="photoInput" name="photo" accept="image/jpeg,image/png,image/webp">
+            </div>
+            <div class="prof-user-info">
+                <div class="prof-user-name"><?= htmlspecialchars($student['name'] ?? 'Siswa') ?></div>
+                <div class="prof-user-meta">
+                    <span>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <?= htmlspecialchars($student['class_name'] ?? 'Umum') ?>
+                    </span>
+                    <span class="meta-dot"></span>
+                    <span>NIS: <?= htmlspecialchars($student['nis'] ?? '-') ?></span>
+                </div>
+            </div>
+        </div>
 
-        <form method="POST" action="" enctype="multipart/form-data">
-            <?= Helper::csrfField() ?>
-            <input type="hidden" name="action" value="update_info">
-            <div class="field-group">
-                <label class="field-label">Nama Lengkap</label>
-                <input type="text" name="name" class="field-input" value="<?= htmlspecialchars($student['name'] ?? '') ?>" maxlength="100" required>
-            </div>
-            <div class="field-group">
-                <label class="field-label">Email</label>
-                <input type="email" name="email" class="field-input" value="<?= htmlspecialchars($student['email'] ?? '') ?>" maxlength="100">
-            </div>
-            <div class="field-group">
-                <label class="field-label">NIS</label>
-                <div class="field-readonly"><?= htmlspecialchars($student['nis'] ?? '-') ?></div>
-            </div>
-            <div class="field-group">
-                <label class="field-label">Kelas</label>
-                <div class="field-readonly"><?= htmlspecialchars($student['class_name'] ?? 'Umum') ?></div>
-            </div>
-            <?php if ($successMsg): ?><div class="alert-success" style="margin-bottom:14px;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><?= htmlspecialchars($successMsg) ?></div><?php endif; ?>
-            <button type="submit" class="btn-save" style="margin-top:14px;">Simpan Perubahan</button>
-        </form>
+        <!-- Body -->
+        <div class="prof-body">
+
+            <?php if ($photoMsg): ?><div class="alert-success">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <?= htmlspecialchars($photoMsg) ?>
+            </div><?php endif; ?>
+            <?php if ($photoError): ?><div class="alert-danger">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <?= htmlspecialchars($photoError) ?>
+            </div><?php endif; ?>
+            <?php if ($successMsg): ?><div class="alert-success">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+                <?= htmlspecialchars($successMsg) ?>
+            </div><?php endif; ?>
+
+            <form method="POST" action="" enctype="multipart/form-data" id="profForm">
+                <?= Helper::csrfField() ?>
+                <input type="hidden" name="action" value="update_info">
+
+                <div class="prof-section-title">Informasi Pribadi</div>
+
+                <div class="prof-grid">
+                    <div class="prof-field full">
+                        <label class="prof-field-label">Nama Lengkap</label>
+                        <input type="text" name="name" class="prof-field-input" value="<?= htmlspecialchars($student['name'] ?? '') ?>" maxlength="100" required placeholder="Masukkan nama lengkap">
+                    </div>
+                    <div class="prof-field full">
+                        <label class="prof-field-label">Email</label>
+                        <input type="email" name="email" class="prof-field-input" value="<?= htmlspecialchars($student['email'] ?? '') ?>" maxlength="100" placeholder="contoh@email.com">
+                    </div>
+                    <div class="prof-field">
+                        <label class="prof-field-label">NIS</label>
+                        <div class="prof-field-readonly"><?= htmlspecialchars($student['nis'] ?? '-') ?></div>
+                    </div>
+                    <div class="prof-field">
+                        <label class="prof-field-label">Kelas</label>
+                        <div class="prof-field-readonly"><?= htmlspecialchars($student['class_name'] ?? 'Umum') ?></div>
+                    </div>
+                </div>
+
+                <div class="prof-photo-hint">
+                    <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+                    Klik foto di atas untuk mengganti &#xB7; Maks 3 MB &#xB7; JPG / PNG / WEBP &#xB7; Klik Simpan setelah memilih
+                </div>
+
+                <div class="prof-save-row" style="margin-top:18px;">
+                    <button type="submit" class="btn-save">
+                        <svg viewBox="0 0 24 24"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+                        Simpan Perubahan
+                    </button>
+                    <div class="save-hint">
+                        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                        Semua perubahan akan tersimpan sekaligus
+                    </div>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
 <script>
-/* CSP-safe: no inline event attributes */
 (function(){
-    var input = document.getElementById('photoInput');
-    var preview = document.getElementById('photoPreview');
-    var badge   = document.getElementById('photoBadge');
+    var input  = document.getElementById('photoInput');
+    var preview = document.getElementById('avatarRing');
+    var badge  = document.getElementById('photoBadge');
     if (!input || !preview) return;
 
-    /* Click anywhere on the avatar circle → open file picker */
     preview.addEventListener('click', function(e){
         e.preventDefault();
         input.click();
     });
 
-    /* After user selects a file → validate + live preview only (no auto-submit) */
     input.addEventListener('change', function(){
         if (!input.files || !input.files[0]) return;
         var file = input.files[0];
         if (file.size > 3 * 1024 * 1024) { alert('Ukuran foto maksimal 3 MB.'); input.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/webp'];
         if (!allowed.includes(file.type)) { alert('Format harus JPG, PNG, atau WEBP.'); input.value = ''; return; }
-        /* Live preview only — do NOT submit yet */
         var reader = new FileReader();
         reader.onload = function(ev){
             var img = document.getElementById('previewImg');
-            var initSpan = document.getElementById('photoInit');
-            if (img) img.src = ev.target.result;
-            else if (initSpan) initSpan.outerHTML = '<img src="' + ev.target.result + '" id="previewImg" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
-            /* Show badge to indicate photo is ready to save */
-            if (badge) badge.style.display = 'block';
+            var init = document.querySelector('.avatar-initial');
+            if (img) {
+                img.src = ev.target.result;
+                if (init) init.style.display = 'none';
+            } else if (init) {
+                init.outerHTML = '<img src="' + ev.target.result + '" id="previewImg" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            }
+            if (badge) badge.classList.add('show');
         };
         reader.readAsDataURL(file);
     });
