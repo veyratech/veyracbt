@@ -138,7 +138,7 @@ $sStudent = htmlspecialchars($student['name'] ?? 'Siswa');
             <div class="sb-avatar">
                 <?php
                 $pu = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
-                if ($pu): ?><img src="<?= htmlspecialchars($pu) ?>" alt=""><?php else: echo mb_substr($student['name'] ?? 'S', 0, 1); endif; ?>
+                if ($pu): ?><img src="<?= Helper::cacheBust(htmlspecialchars($pu)) ?>" alt=""><?php else: echo mb_substr($student['name'] ?? 'S', 0, 1); endif; ?>
             </div>
             <div class="sb-name" title="<?= $sStudent ?>"><?= $sStudent ?></div>
             <div class="sb-meta">NIS: <?= htmlspecialchars($student['nis'] ?? '-') ?> · <?= htmlspecialchars($student['class_name'] ?? 'Umum') ?></div>
@@ -226,7 +226,7 @@ $sStudent = htmlspecialchars($student['name'] ?? 'Siswa');
                 <div style="width:24px;height:24px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0284c7;overflow:hidden;">
                     <?php
                     $pp = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
-                    if ($pp): ?><img src="<?= htmlspecialchars($pp) ?>" alt="" style="width:100%;height:100%;object-fit:cover;"><?php else: echo mb_substr($student['name'] ?? '-', 0, 1); endif; ?>
+                    if ($pp): ?><img src="<?= Helper::cacheBust(htmlspecialchars($pp)) ?>" alt="" style="width:100%;height:100%;object-fit:cover;"><?php else: echo mb_substr($student['name'] ?? '-', 0, 1); endif; ?>
                 </div>
             </a>
         </div>

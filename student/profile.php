@@ -130,7 +130,7 @@ $photoUrl = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : nu
         <div class="photo-upload-area">
             <div class="photo-preview" id="photoPreview">
                 <?php if ($photoUrl): ?>
-                    <img src="<?= htmlspecialchars($photoUrl) ?>?t=<?= time() ?>" alt="Foto" id="previewImg">
+                    <img src="<?= Helper::cacheBust(htmlspecialchars($photoUrl)) ?>" alt="Foto" id="previewImg">
                 <?php else: ?>
                     <span id="photoInit"><?= mb_substr($student['name'] ?? 'S', 0, 1) ?></span>
                 <?php endif; ?>

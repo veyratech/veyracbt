@@ -133,7 +133,7 @@ $cardDataJson = json_encode([
                     <div class="pc-badge"><?= htmlspecialchars($school['name'] ?? 'CBT Online') ?></div>
                 </div>
                 <div class="pc-photo-ring">
-                    <?php if ($hasPhoto): ?><img src="<?= htmlspecialchars($stuPhoto) ?>" alt=""><?php else: ?><span class="pc-pinit"><?= $initials ?></span><?php endif; ?>
+                    <?php if ($hasPhoto): ?><img src="<?= Helper::cacheBust(htmlspecialchars($stuPhoto)) ?>" alt=""><?php else: ?><span class="pc-pinit"><?= $initials ?></span><?php endif; ?>
                 </div>
                 <div class="pc-fbody">
                     <div>
