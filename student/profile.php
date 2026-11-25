@@ -10,9 +10,8 @@ require_once __DIR__ . '/bootstrap.php';
 
 $pageTitle = 'Profil Saya';
 $pageKey   = 'profile';
-require_once __DIR__ . '/header.php';
 
-// ── Handle photo upload ──────────────────────────────────────
+// ── Handle photo upload FIRST (before header renders) ─────────
 $photoMsg    = '';
 $photoError  = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
@@ -77,6 +76,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_FILES['photo'])) {
         $successMsg = 'Profil berhasil diperbarui!';
     }
 }
+
+// Refresh $student from DB after any POST so header shows latest data
+$freshAfterPost = Database::fetch(
+    "SELECT s.*, c.name as class_name
+     FROM students s LEFT JOIN classes c ON s.class_id = c.id
+     WHERE s.id = ? AND s.tenant_id = ?",
+    [(int)$student['id'], $tenantId]
+);
+if ($freshAfterPost) {
+    $freshAfterPost['role'] = 'student';
+    $_SESSION['auth_user'] = $freshAfterPost;
+    $student = $freshAfterPost;
+}
+
+require_once __DIR__ . '/header.php';
 
 $photoUrl = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
 ?>
