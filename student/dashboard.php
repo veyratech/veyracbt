@@ -93,10 +93,11 @@ $practiceCompleted = (int)Database::fetchColumn(
 
 // Badges (conditional)
 $badges = [];
-if ($completedCount > 0) $badges[] = ['icon'=>'🎯','label'=>'Ujian Pertama','cls'=>'first'];
-if ($bestAvg >= 90 && $completedCount > 0) $badges[] = ['icon'=>'💎','label'=>'Skor Sempurna','cls'=>'perfect'];
-if ($practiceCompleted > 0) $badges[] = ['icon'=>'📚','label'=>'Practice Master','cls'=>'practice'];
-if ($_activeDays >= 3) $badges[] = ['icon'=>'🔥','label'=>"{$streakCount} Hari Streak","cls"=>"streak"];
+// Badges (conditional) — SVG icons, no emoji
+if ($completedCount > 0) $badges[] = ['icon'=>"<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><circle cx=\"12\" cy=\"12\" r=\"10\"/><circle cx=\"12\" cy=\"12\" r=\"6\"/><circle cx=\"12\" cy=\"12\" r=\"2\"/></svg>",'label'=>'Ujian Pertama','cls'=>'first'];
+if ($bestAvg >= 90 && $completedCount > 0) $badges[] = ['icon'=>"<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M12 2L8 7H3l5 4-2 7 6-4 6 4-2-7 5-4h-5z\"/></svg>",'label'=>'Skor Sempurna','cls'=>'perfect'];
+if ($practiceCompleted > 0) $badges[] = ['icon'=>"<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M4 19.5A2.5 2.5 0 0 1 6.5 17H20\"/><path d=\"M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z\"/></svg>",'label'=>'Practice Master','cls'=>'practice'];
+if ($_activeDays >= 3) $badges[] = ['icon'=>"<svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\"><path d=\"M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.5-2.5 1-3.5.5.5 1 1.5 1.5 2.5z\"/></svg>",'label'=>"{$streakCount} Hari Streak",'cls'=>"streak"];
 
 $inProgress = 0;
 foreach ($exams as $ex) {
@@ -346,7 +347,9 @@ html[data-theme="dark"] .gamify-goal-card  { background: var(--card); }
 <!-- GAMIFICATION: Streak + Goal -->
 <?php if ($streakCount > 0 || $practiceToday > 0): ?>
 <div class="gamify-streak-bar">
-    <div class="streak-flame">🔥</div>
+    <div class="streak-flame">
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" style="vertical-align:-4px;"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.5-2.5 1-3.5.5.5 1 1.5 1.5 2.5z"/></svg>
+    </div>
     <div class="streak-info">
         <div class="streak-label">Learning Streak</div>
         <div class="streak-count"><?= $streakCount ?> Hari Berturut-turut</div>
@@ -357,14 +360,14 @@ html[data-theme="dark"] .gamify-goal-card  { background: var(--card); }
 
 <div class="gamify-row">
     <div class="gamify-goal-card">
-        <div class="gamify-goal-title"><span>🎯</span> Target Harian</div>
+        <div class="gamify-goal-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-1px;margin-right:2px;"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg> Target Harian</div>
         <div class="gamify-progress-track">
             <div class="gamify-progress-fill<?= $goalPct >= 100 ? ' done' : '' ?>" style="width:<?= $goalPct ?>%"></div>
         </div>
-        <div class="gamify-goal-text"><?= $practiceToday ?> / <?= $dailyGoal ?> soal hari ini<?= $goalPct >= 100 ? ' — Tercapai! 🎉' : '' ?></div>
+        <div class="gamify-goal-text"><?= $practiceToday ?> / <?= $dailyGoal ?> soal hari ini<?= $goalPct >= 100 ? ' — Tercapai!' : '' ?></div>
     </div>
     <div class="gamify-goal-card">
-        <div class="gamify-goal-title"><span>📊</span> Rekor Pribadi</div>
+        <div class="gamify-goal-title"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="vertical-align:-1px;margin-right:2px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg> Rekor Pribadi</div>
         <div style="display:flex;gap:12px;margin-top:4px;">
             <div style="flex:1;text-align:center;">
                 <div style="font-size:22px;font-weight:900;color:#059669;line-height:1;"><?= $completedCount ?></div>

@@ -40,7 +40,7 @@
         if (stored === 'granted' || stored === 'denied') return; // sudah ditanya sebelumnya
         Notification.requestPermission().then(function (perm) {
             localStorage.setItem(prefKey, perm);
-            if (perm === 'granted') showToast('Notifikasi diaktifkan ✅');
+            if (perm === 'granted') showToast('Notifikasi diaktifkan');
         });
     }
     // Tampilkan tombol notifikasi setelah 5 detik (user sudah familiar)

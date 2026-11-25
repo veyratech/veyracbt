@@ -429,11 +429,11 @@ class CBTEngine {
                                 </div>
                             </div>
                             <div class="cbt-audio-badge ${isExceeded ? 'limit-reached' : ''}" id="audioBadge_${q.id}">
-                                ${limit === 0 
-                                    ? '♾️ Pemutaran Bebas' 
-                                    : (isExceeded 
-                                        ? '🚫 Batas Putar Habis (' + playCount + '/' + limit + 'x)' 
-                                        : '▶️ Kesempatan: ' + (limit - playCount) + ' dari ' + limit + 'x')}
+                                ${limit === 0
+                                    ? 'Pemutaran Bebas'
+                                    : (isExceeded
+                                        ? 'Batas Putar Habis (' + playCount + '/' + limit + 'x)'
+                                        : 'Kesempatan: ' + (limit - playCount) + ' dari ' + limit + 'x')}
                             </div>
                         </div>
                         <div class="cbt-audio-body">
@@ -488,7 +488,7 @@ class CBTEngine {
                                     }
                                 } else {
                                     if (badge) {
-                                        badge.textContent = `▶️ Kesempatan: ${rem} dari ${limit}x`;
+                                        badge.textContent = `Kesempatan: ${rem} dari ${limit}x`;
                                     }
                                 }
                             }
@@ -1006,7 +1006,7 @@ class CBTEngine {
             };
         } catch (err) {
             console.warn('Webcam permission denied or error:', err);
-            if (placeholder) placeholder.innerHTML = '⚠️ Akses kamera tidak diizinkan.<br><small style="color:#ef4444;">Pengawas memantau status ini.</small>';
+            if (placeholder) placeholder.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" style="vertical-align:-3px;margin-right:4px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>Akses kamera tidak diizinkan.<br><small style="color:#ef4444;">Pengawas memantau status ini.</small>';
             if (badge) { badge.textContent = 'Ditolak / Mati'; badge.style.color = '#ef4444'; }
             if (dot) { dot.style.background = '#ef4444'; dot.style.animation = 'none'; }
             this.sendWebcamStatus('denied');

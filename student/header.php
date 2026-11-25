@@ -195,7 +195,7 @@ $sStudent = htmlspecialchars($student['name'] ?? 'Siswa');
     </div>
     
     <div class="sb-footer">
-        <div class="sb-quote">"Belajar hari ini, juara nanti!" 🌟</div>
+        <div class="sb-quote">"Belajar hari ini, juara nanti!"</div>
         <div class="sb-ver">CBT Online v2.0</div>
     </div>
 </aside>
