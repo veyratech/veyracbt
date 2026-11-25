@@ -13,6 +13,14 @@ require_once __DIR__ . '/bootstrap.php';
 $pageTitle = 'Kumpulkan Ujian';
 $pageKey   = 'exam';
 
+// ── Practice Mode: selesai di api-save.php via finish_exam action.
+//    Finish.php hanya menangani exam session normal.
+if (!empty($_SESSION['practice_mode']) && $_SESSION['practice_mode'] === true) {
+    // Redirect ke history latihan
+    Helper::redirect('history.php?tab=latihan');
+    exit;
+}
+
 $sessionId = (int)($_GET['session_id'] ?? 0);
 if ($sessionId <= 0) { Helper::redirect('dashboard.php'); exit; }
 

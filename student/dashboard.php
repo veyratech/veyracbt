@@ -53,6 +53,51 @@ $bestAvg = Database::fetchColumn(
     [(int)$student['id'], $tenantId]);
 $bestAvg = ($bestAvg !== null && $bestAvg !== '') ? (float)$bestAvg : 0;
 
+// ── Gamification Data ──────────────────────────────────────
+// Learning streak: hitung hari berturut-turut ada aktivitas (exam atau practice)
+$_streakDays = (int)Database::fetchColumn(
+    "SELECT COUNT(DISTINCT DATE(start_time)) FROM (
+        SELECT start_time FROM exam_sessions WHERE student_id=? AND status='completed' AND start_time>=DATE_SUB(CURDATE(),INTERVAL 30 DAY)
+        UNION ALL
+        SELECT created_at FROM practice_sessions WHERE student_id=? AND created_at>=DATE_SUB(CURDATE(),INTERVAL 30 DAY)
+     ) AS a ORDER BY 1",
+    [(int)$student['id'], (int)$student['id']]
+);
+// Simplified streak: 3+ hari aktivitas = streak 3, else hitung unik
+$_activeDays = (int)Database::fetchColumn(
+    "SELECT COUNT(*) FROM (
+        SELECT DISTINCT DATE(start_time) AS d FROM exam_sessions WHERE student_id=? AND status='completed' AND start_time>=DATE_SUB(CURDATE(),INTERVAL 14 DAY)
+        UNION
+        SELECT DISTINCT DATE(created_at) AS d FROM practice_sessions WHERE student_id=? AND created_at>=DATE_SUB(CURDATE(),INTERVAL 14 DAY)
+     ) AS x",
+    [(int)$student['id'], (int)$student['id']]
+);
+$streakCount = min($_activeDays, 7); // cap visual di 7
+
+// Daily goal: target 5 soal/hari dari practice
+$_todayStarted = date('Y-m-d');
+$practiceToday = (int)Database::fetchColumn(
+    "SELECT COUNT(DISTINCT ea.question_id) FROM exam_answers ea
+     JOIN practice_sessions ps ON ea.session_id = ps.id
+     WHERE ps.student_id=? AND DATE(ea.updated_at)=? AND ea.student_answer IS NOT NULL",
+    [(int)$student['id'], $_todayStarted]
+);
+$dailyGoal = 5;
+$goalPct = min(100, round(($practiceToday / $dailyGoal) * 100));
+
+// Total practice completed
+$practiceCompleted = (int)Database::fetchColumn(
+    "SELECT COUNT(*) FROM practice_sessions WHERE student_id=? AND score>0",
+    [(int)$student['id']]
+);
+
+// Badges (conditional)
+$badges = [];
+if ($completedCount > 0) $badges[] = ['icon'=>'🎯','label'=>'Ujian Pertama','cls'=>'first'];
+if ($bestAvg >= 90 && $completedCount > 0) $badges[] = ['icon'=>'💎','label'=>'Skor Sempurna','cls'=>'perfect'];
+if ($practiceCompleted > 0) $badges[] = ['icon'=>'📚','label'=>'Practice Master','cls'=>'practice'];
+if ($_activeDays >= 3) $badges[] = ['icon'=>'🔥','label'=>"{$streakCount} Hari Streak","cls"=>"streak"];
+
 $inProgress = 0;
 foreach ($exams as $ex) {
     if ($ex['session_status'] === 'in_progress') $inProgress++;
@@ -198,6 +243,60 @@ html[data-theme="dark"] .chip.blocked    { background:rgba(239,68,68,.15);color:
     .exam-list { margin:0 0 14px; }
     .up-list  { margin:0 0 14px; }
 }
+
+/* ── GAMIFICATION ─────────────────────────────────────── */
+.gamify-streak-bar {
+    background: linear-gradient(135deg, #ff6b35 0%, #f7931e 50%, #ffd231 100%);
+    border-radius: 14px; padding: 14px 18px; margin-bottom: 18px;
+    display: flex; align-items: center; gap: 14px;
+    box-shadow: 0 4px 16px rgba(255,107,53,.25); color: #fff;
+    position: relative; overflow: hidden;
+}
+.gamify-streak-bar::before {
+    content: ''; position: absolute; inset: 0;
+    background: radial-gradient(circle at 80% 50%, rgba(255,255,255,.15), transparent 60%);
+}
+.streak-flame { font-size: 32px; animation: flame 0.6s ease-in-out infinite alternate; flex-shrink: 0; }
+@keyframes flame { from{transform:scale(1) rotate(-3deg)}to{transform:scale(1.15) rotate(3deg)} }
+.streak-info { flex: 1; }
+.streak-label { font-size: 11px; opacity: .85; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.streak-count { font-size: 26px; font-weight: 900; line-height: 1.1; }
+.streak-sub { font-size: 11px; opacity: .8; margin-top: 2px; }
+
+.gamify-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 18px; }
+.gamify-goal-card {
+    background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.04);
+}
+.gamify-goal-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 8px; display: flex; align-items: center; gap: 5px; }
+.gamify-progress-track { height: 8px; background: var(--bg-alt); border-radius: 999px; overflow: hidden; margin-bottom: 6px; }
+.gamify-progress-fill { height: 100%; border-radius: 999px; transition: width .5s ease; background: linear-gradient(90deg, #059669, #10b981); }
+.gamify-progress-fill.done { background: linear-gradient(90deg, #f59e0b, #ef4444); }
+.gamify-goal-text { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+
+.gamify-badges-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+.gamify-badge {
+    background: var(--card); border: 1px solid var(--border); border-radius: 12px;
+    padding: 10px 12px; display: flex; align-items: center; gap: 7px;
+    font-size: 12px; font-weight: 700; color: var(--text); cursor: default;
+    transition: transform .15s, box-shadow .15s;
+}
+.gamify-badge:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,.08); }
+.gamify-badge.locked { opacity: .4; filter: grayscale(1); }
+.gamify-badge-icon { font-size: 18px; }
+.gamify-badge.cls-first   { border-color: #bfdbfe; background: #eff6ff; }
+.gamify-badge.cls-perfect { border-color: #a7f3d0; background: #ecfdf5; }
+.gamify-badge.cls-practice{ border-color: #fef3c7; background: #fffbeb; }
+.gamify-badge.cls-streak  { border-color: #fecaca; background: #fff1f2; }
+html[data-theme="dark"] .gamify-badge.cls-first   { background: rgba(2,132,199,.12); border-color: rgba(2,132,199,.3); }
+html[data-theme="dark"] .gamify-badge.cls-perfect { background: rgba(5,150,105,.12); border-color: rgba(5,150,105,.3); }
+html[data-theme="dark"] .gamify-badge.cls-practice{ background: rgba(245,158,11,.12); border-color: rgba(245,158,11,.3); }
+html[data-theme="dark"] .gamify-badge.cls-streak  { background: rgba(239,68,68,.12);  border-color: rgba(239,68,68,.3); }
+
+html[data-theme="dark"] .gamify-streak-bar { background: linear-gradient(135deg, #dc2626, #ea580c); box-shadow: 0 4px 16px rgba(239,68,68,.3); }
+html[data-theme="dark"] .gamify-goal-card  { background: var(--card); }
+
+@media(max-width:640px){ .gamify-row { grid-template-columns: 1fr; } }
 </style>
 
 <!-- HERO -->
@@ -236,6 +335,65 @@ html[data-theme="dark"] .chip.blocked    { background:rgba(239,68,68,.15);color:
     </div>
     <div class="es-title">Tidak Ada Ujian Berlangsung</div>
     <div class="es-desc">Saat ini tidak ada ujian yang sedang dikerjakan.<br>Ayo ikuti ujian yang tersedia!</div>
+</div>
+<?php endif; ?>
+
+<!-- STATS -->
+<div class="sec-head"><div class="sec-title">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+    Statistik Nilai</div></div>
+
+<!-- GAMIFICATION: Streak + Goal -->
+<?php if ($streakCount > 0 || $practiceToday > 0): ?>
+<div class="gamify-streak-bar">
+    <div class="streak-flame">🔥</div>
+    <div class="streak-info">
+        <div class="streak-label">Learning Streak</div>
+        <div class="streak-count"><?= $streakCount ?> Hari Berturut-turut</div>
+        <div class="streak-sub">Terus latihan untuk menjaga api semangatmu!</div>
+    </div>
+</div>
+<?php endif; ?>
+
+<div class="gamify-row">
+    <div class="gamify-goal-card">
+        <div class="gamify-goal-title"><span>🎯</span> Target Harian</div>
+        <div class="gamify-progress-track">
+            <div class="gamify-progress-fill<?= $goalPct >= 100 ? ' done' : '' ?>" style="width:<?= $goalPct ?>%"></div>
+        </div>
+        <div class="gamify-goal-text"><?= $practiceToday ?> / <?= $dailyGoal ?> soal hari ini<?= $goalPct >= 100 ? ' — Tercapai! 🎉' : '' ?></div>
+    </div>
+    <div class="gamify-goal-card">
+        <div class="gamify-goal-title"><span>📊</span> Rekor Pribadi</div>
+        <div style="display:flex;gap:12px;margin-top:4px;">
+            <div style="flex:1;text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:#059669;line-height:1;"><?= $completedCount ?></div>
+                <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;">UJIAN</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:#0284c7;line-height:1;"><?= $bestAvg > 0 ? number_format($bestAvg,0) : '—' ?></div>
+                <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;">NILAI TERBAIK</div>
+            </div>
+            <div style="flex:1;text-align:center;">
+                <div style="font-size:22px;font-weight:900;color:#d97706;line-height:1;"><?= $practiceCompleted ?></div>
+                <div style="font-size:10px;color:var(--muted);font-weight:700;margin-top:2px;">LATIHAN</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- BADGES -->
+<?php if (!empty($badges)): ?>
+<div class="sec-head"><div class="sec-title">
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align:-2px;"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+    Pencapaian</div><span class="sec-badge"><?= count($badges) ?> Terbuka</span></div>
+<div class="gamify-badges-row">
+    <?php foreach ($badges as $b): ?>
+        <div class="gamify-badge cls-<?= $b['cls'] ?>">
+            <span class="gamify-badge-icon"><?= $b['icon'] ?></span>
+            <span><?= htmlspecialchars($b['label']) ?></span>
+        </div>
+    <?php endforeach; ?>
 </div>
 <?php endif; ?>
 

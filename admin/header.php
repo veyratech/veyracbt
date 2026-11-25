@@ -53,10 +53,22 @@ $portalDashboardUrl = $portalBaseUrl . '/dashboard';
 // Sinkronisasi Logo Sekolah (prioritaskan logo_url hasil upload pengaturan sekolah, lalu SSO session / kolom tenants)
 $schoolLogo = !empty($school['logo_url'])
     ? $school['logo_url']
-    : ($_SESSION['school_logo'] ?? $school['logo'] ?? $school['logo_path'] ?? null);
+    : ($_SESSION['school_logo'] ?? $school['logo'] ?? null);
+// Fallback: coba cari file logo fisik di uploads/logos jika path dari session/DB tidak valid atau 404
+if (!$schoolLogo || !file_exists(__DIR__ . '/../' . str_replace('../', '', $schoolLogo))) {
+    $fallbackLogo = __DIR__ . '/../assets/uploads/logos';
+    if (is_dir($fallbackLogo)) {
+        $files = glob($fallbackLogo . '/logo_t' . $tenantId . '*');
+        if (!empty($files)) {
+            $schoolLogo = 'assets/uploads/logos/' . basename(max($files));
+        }
+    }
+}
 if ($schoolLogo && !str_starts_with($schoolLogo, 'http') && !str_starts_with($schoolLogo, '/') && !str_starts_with($schoolLogo, 'data:')) {
     if (file_exists(__DIR__ . '/../' . $schoolLogo)) {
         $schoolLogo = '../' . $schoolLogo;
+    } else {
+        $schoolLogo = null; // invalid path → fallback to initials
     }
 }
 $schoolInitials = '';
@@ -422,35 +434,249 @@ if (!$schoolInitials) {
                 flex-shrink: 0;
             }
             .fan-top-header {
-                padding: 12px 14px !important;
-                gap: 10px !important;
+                padding: 10px 12px !important;
+                gap: 8px !important;
                 position: sticky !important;
                 top: 0 !important;
                 background: #ffffff !important;
-                box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04) !important;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
             }
             .fan-main-content {
-                padding: 14px 12px 30px 12px !important;
+                padding: 12px 10px 32px 10px !important;
+            }
+            /* Hide non-essential action buttons on tablet */
+            .fan-top-actions .btn-outline.btn-sm {
+                display: none !important;
+            }
+            /* Compact the search on tablet */
+            .fan-top-actions form {
+                max-width: 180px !important;
+                padding: 5px 10px !important;
+            }
+            .fan-top-actions form input {
+                font-size: 11px !important;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .fan-top-header {
+                padding: 8px 10px !important;
+                gap: 6px !important;
+            }
+            /* Two-row layout on very narrow screens */
+            .fan-top-header {
+                flex-wrap: wrap !important;
+            }
+            .fan-header-left {
+                width: 100% !important;
+                order: 1 !important;
+            }
+            .fan-mobile-profile {
+                display: none !important; /* hide profile pill on very small screens to save space */
+            }
+            .fan-header-right {
+                width: 100% !important;
+                order: 2 !important;
+                justify-content: space-between !important;
+                margin-top: 6px !important;
+                padding-top: 6px !important;
+                border-top: 1px solid #f1f5f9 !important;
+            }
+            html[data-theme="dark"] .fan-header-right {
+                border-top-color: #334155 !important;
+            }
+            /* Only show essential right-side controls */
+            .fan-top-actions .btn-outline.btn-sm {
+                display: none !important;
+            }
+            .fan-top-actions form {
+                display: none !important; /* hide search entirely on phone */
+            }
+            /* Make icon buttons slightly larger for touch */
+            .fan-icon-btn {
+                width: 38px !important;
+                height: 38px !important;
+            }
+            /* Page title smaller on phone */
+            .fan-header-title {
+                font-size: 15px !important;
+            }
+            .fan-header-subtitle {
+                font-size: 10.5px !important;
             }
         }
 
         @media (max-width: 480px) {
             .dropdown-menu {
                 position: fixed !important;
-                top: 68px !important;
-                left: 10px !important;
-                right: 10px !important;
+                top: 60px !important;
+                left: 8px !important;
+                right: 8px !important;
                 width: auto !important;
                 min-width: 0 !important;
                 max-width: none !important;
-                max-height: calc(100vh - 85px) !important;
-                border-radius: 18px !important;
+                max-height: calc(100vh - 75px) !important;
+                border-radius: 16px !important;
             }
             .table-responsive {
                 width: 100%;
                 overflow-x: auto;
                 -webkit-overflow-scrolling: touch;
             }
+            /* Right-side controls: only theme + notif on smallest phones */
+            .fan-icon-btn:not(#themeToggle):not(#notifBell) {
+                display: none !important;
+            }
+        }
+
+        @media (max-width: 412px) {
+            .fan-kpi-grid { gap: 8px; }
+            table.fan-table, table.fan-table thead, table.fan-table tbody, table.fan-table th, table.fan-table td, table.fan-table tr { display: block; }
+            table.fan-table thead tr { position: absolute; top: -9999px; left: -9999px; }
+            table.fan-table tr { margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px; background: #fff; }
+            html[data-theme="dark"] table.fan-table tr { background: #1e293b; border-color: #334155; }
+            table.fan-table td { padding: 5px 4px !important; text-align: right; position: relative; padding-left: 45% !important; white-space: normal !important; }
+            table.fan-table td:before { position: absolute; left: 8px; width: 42%; padding-right: 8px; white-space: nowrap; font-weight: 700; color: #64748b; text-align: left; }
+            table.fan-table td:nth-of-type(1):before { content: "No"; }
+            table.fan-table td:nth-of-type(2):before { content: "Ujian"; }
+            table.fan-table td:nth-of-type(3):before { content: "Token"; }
+            table.fan-table td:nth-of-type(4):before { content: "Jadwal"; }
+            table.fan-table td:nth-of-type(5):before { content: "Partisipasi"; }
+            table.fan-table td:nth-of-type(6):before { content: "Status"; }
+            table.fan-table td:nth-of-type(7):before { content: "Aksi"; }
+            .fan-donut-center-wrap { justify-content: center !important; }
+            #donut-conic-circle { width: 110px !important; height: 110px !important; }
+            .fan-bar-chart { overflow-x: auto; }
+            .fan-live-banner { flex-direction: column; align-items: flex-start !important; }
+        }
+
+        @media (max-width: 375px) {
+            .fan-main-content { padding: 8px 8px 24px 8px !important; }
+            .fan-top-header { padding: 6px 8px !important; gap: 4px !important; }
+            .fan-section-heading { font-size: 14px !important; }
+            .fan-kpi-card { padding: 10px 8px !important; }
+            .fan-kpi-info-val { font-size: 18px !important; }
+            .fan-kpi-info-label { font-size: 10px !important; }
+            #donut-conic-circle { width: 90px !important; height: 90px !important; }
+            .fan-donut-hole { width: 60px !important; height: 60px !important; }
+            .fan-donut-big-val { font-size: 15px !important; }
+        }
+
+        /* ── HEADER LAYOUT CLASSES (responsive) ── */
+        .fan-header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+            flex: 1;
+        }
+        .fan-header-right {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-shrink: 0;
+        }
+        .fan-header-title {
+            font-size: 15px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.3px;
+            line-height: 1.2;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 160px;
+        }
+        .fan-header-subtitle {
+            font-size: 11px;
+            color: #64748b;
+            font-weight: 600;
+            margin-top: 1px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+        .fan-icon-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #475569;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.15s ease;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .fan-icon-btn:hover {
+            background: #f8fafc;
+            border-color: #cbd5e1;
+            color: #0f172a;
+        }
+        html[data-theme="dark"] .fan-icon-btn {
+            background: #1e293b;
+            border-color: #334155;
+            color: #94a3b8;
+        }
+        html[data-theme="dark"] .fan-icon-btn:hover {
+            background: #334155;
+            border-color: #475569;
+            color: #f1f5f9;
+        }
+        .fan-icon-badge {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background: #10b981;
+            border: 1.5px solid #ffffff;
+        }
+        html[data-theme="dark"] .fan-icon-badge {
+            border-color: #1e293b;
+        }
+
+        /* School badge in header (logo or initials) */
+        .fan-header-school {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            min-width: 0;
+            flex: 1;
+        }
+        .fan-header-logo-box {
+            width: 32px;
+            height: 32px;
+            border-radius: 9px;
+            background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+            border: 1px solid #a7f3d0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        html[data-theme="dark"] .fan-header-logo-box {
+            background: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.35);
+        }
+        .fan-header-logo-box img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .fan-header-logo-init {
+            font-size: 12px;
+            font-weight: 800;
+            color: #059669;
+        }
+        html[data-theme="dark"] .fan-header-logo-init {
+            color: #34d399;
         }
 
         @media (max-width: 412px) {
@@ -485,15 +711,54 @@ if (!$schoolInitials) {
         }
 
         @media (max-width: 375px) {
-            .fan-main-content { padding: 10px 8px 24px 8px !important; }
-            .fan-top-header { padding: 8px 8px !important; }
+            .fan-main-content { padding: 8px 8px 24px 8px !important; }
+            .fan-top-header { padding: 6px 8px !important; gap: 4px !important; }
             .fan-section-heading { font-size: 14px !important; }
-            .fan-kpi-card { padding: 12px 10px !important; }
-            .fan-kpi-info-val { font-size: 20px !important; }
+            .fan-kpi-card { padding: 10px 8px !important; }
+            .fan-kpi-info-val { font-size: 18px !important; }
             .fan-kpi-info-label { font-size: 10px !important; }
-            #donut-conic-circle { width: 100px !important; height: 100px !important; }
-            .fan-donut-hole { width: 68px !important; height: 68px !important; }
-            .fan-donut-big-val { font-size: 16px !important; }
+            #donut-conic-circle { width: 90px !important; height: 90px !important; }
+            .fan-donut-hole { width: 60px !important; height: 60px !important; }
+            .fan-donut-big-val { font-size: 15px !important; }
+        }
+
+        /* ── MOBILE HEADER PROFILE (visible ≤1024px, hidden ≤600px) ── */
+        .fan-mobile-profile {
+            display: none;
+            align-items: center;
+            gap: 7px;
+            padding: 5px 9px 5px 5px;
+            background: #f0fdf4;
+            border: 1px solid #d1fae5;
+            border-radius: 10px;
+            flex-shrink: 0;
+        }
+        html[data-theme="dark"] .fan-mobile-profile {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+        .fan-mobile-profile-avatar {
+            width: 26px; height: 26px; border-radius: 7px;
+            background: linear-gradient(135deg, #34d399, #059669);
+            color: #fff; font-size: 10px; font-weight: 800;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .fan-mobile-profile-name {
+            font-size: 11px; font-weight: 700; color: #064e3b;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+            max-width: 90px;
+        }
+        .fan-mobile-profile-role {
+            font-size: 9px; font-weight: 600; color: #059669;
+        }
+
+        @media (max-width: 1024px) {
+            .fan-mobile-profile { display: flex; }
+            /* disable hover transform on touch */
+            .fan-kpi-card:hover { transform: none; box-shadow: 0 4px 16px -4px rgba(15,23,42,0.04); }
+            .insight-alerts { flex-direction: column; }
+            .insight-card.info[style*="flex:2"] { min-width: unset; flex: unset; }
         }
     </style>
     <script>
@@ -836,7 +1101,8 @@ if (!$schoolInitials) {
     <main class="fan-main-content">
         <!-- TOP ACTIONS & SEARCH -->
         <div class="fan-top-header">
-            <div style="display: flex; align-items: center; gap: 14px; min-width: 0;">
+            <!-- LEFT: Hamburger + School Identity + Page Title -->
+            <div class="fan-header-left">
                 <!-- Mobile Menu Toggle Button -->
                 <button type="button" class="fan-menu-toggle" id="fanMenuToggle" onclick="toggleFanSidebar(true)" aria-label="Buka Menu" title="Buka Menu">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
@@ -845,99 +1111,114 @@ if (!$schoolInitials) {
                         <line x1="3" y1="18" x2="21" y2="18"></line>
                     </svg>
                 </button>
-                <div style="min-width: 0;">
-                    <div style="font-size: 16px; font-weight: 800; color: #0f172a; letter-spacing: -0.3px; line-height: 1.2;">
-                        <?= htmlspecialchars($pageTitle ?? 'Dashboard Admin') ?>
+                <!-- School Logo / Initials -->
+                <div class="fan-header-school">
+                    <div class="fan-header-logo-box">
+                        <?php if ($schoolLogo): ?>
+                            <img src="<?= htmlspecialchars($schoolLogo) ?>" alt="Logo">
+                        <?php else: ?>
+                            <span class="fan-header-logo-init"><?= $schoolInitials ?></span>
+                        <?php endif; ?>
                     </div>
-                    <div style="font-size: 11.5px; color: #64748b; font-weight: 600; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-                        <?= htmlspecialchars($school['name'] ?? 'CBT Online') ?> &bull; Paket <?= strtoupper(htmlspecialchars($school['package'] ?? 'PRO')) ?>
+                    <div style="min-width:0;overflow:hidden;">
+                        <div class="fan-header-title"><?= htmlspecialchars($pageTitle ?? 'Dashboard Admin') ?></div>
+                        <div class="fan-header-subtitle"><?= htmlspecialchars(mb_substr($school['name'] ?? 'CBT Online', 0, 18)) ?> &bull; <?= strtoupper(htmlspecialchars($school['package'] ?? 'PRO')) ?></div>
+                    </div>
+                </div>
+                <!-- Mobile User Profile Pill -->
+                <div class="fan-mobile-profile" title="Profil Saya" onclick="toggleFanDropdown('userMenu', event)">
+                    <div class="fan-mobile-profile-avatar"><?= $initials ?></div>
+                    <div style="min-width:0;overflow:hidden;">
+                        <div class="fan-mobile-profile-name"><?= htmlspecialchars($user['name'] ?? '-') ?></div>
+                        <div class="fan-mobile-profile-role"><?= $isAdmin ? 'Admin' : 'Guru' ?></div>
                     </div>
                 </div>
             </div>
 
-            <div class="fan-top-actions">
-                <form action="students.php" method="GET" style="display: flex; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 7px 14px; gap: 8px; width: 100%; max-width: 280px; flex-shrink: 0;">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    <input type="text" name="q" placeholder="Cari siswa (nama / NIS)..." style="border: none; background: transparent; outline: none; font-size: 12px; width: 100%; color: #1e293b; font-family: inherit;">
-                </form>
+            <!-- RIGHT: Search + Actions -->
+            <div class="fan-header-right">
+                <form action="students.php" method="GET" style="display: flex; align-items: center; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 5px 10px; gap: 6px; width: 100%; max-width: 200px; flex-shrink: 1;">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" name="q" placeholder="Cari siswa..." style="border: none; background: transparent; outline: none; font-size: 11.5px; width: 100%; color: #1e293b; font-family: inherit;">
+                    </form>
 
-                <a href="../student/dashboard.php" target="_blank" class="btn btn-outline btn-sm" style="border-radius: 12px; font-size: 12px; font-weight: 700; padding: 7px 13px; gap: 6px; display: inline-flex; align-items: center; border-color: #e2e8f0; color: #334155; background: #ffffff; text-decoration: none;" title="Buka dan lihat tampilan Portal / Dashboard Siswa">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
-                    <span>Pratinjau Siswa</span>
-                </a>
+                    <a href="../student/dashboard.php" target="_blank" class="btn btn-outline btn-sm" style="border-radius: 10px; font-size: 11px; font-weight: 700; padding: 6px 10px; gap: 5px; display: inline-flex; align-items: center; border-color: #e2e8f0; color: #334155; background: #ffffff; text-decoration: none;" title="Buka Portal Siswa">
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path><polyline points="15 3 21 3 21 9"></polyline><line x1="10" y1="14" x2="21" y2="3"></line></svg>
+                        <span>Preview</span>
+                    </a>
 
-                <button type="button" class="fan-icon-btn" id="themeToggle" title="Ganti Mode Gelap / Terang">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
-                </button>
-
-                <div class="dropdown-wrap" style="position: relative;">
-                    <button type="button" class="fan-icon-btn" id="notifBell" onclick="toggleFanDropdown('notifMenu', event)" title="Notifikasi Ujian & Aktivitas">
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
-                        <?php if ($totalNotif > 0): ?>
-                            <span class="fan-icon-badge" style="background: <?= $notifBlocked > 0 ? '#ef4444' : '#10b981' ?>;"></span>
-                        <?php endif; ?>
+                    <button type="button" class="fan-icon-btn" id="themeToggle" title="Ganti Mode Gelap / Terang">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg>
                     </button>
-                    <div class="dropdown-menu dropdown-menu-right" id="notifMenu" onclick="event.stopPropagation()">
-                        <div class="dropdown-title">
-                            <span>🔔 Notifikasi Ujian</span>
+
+                    <div class="dropdown-wrap" style="position: relative;">
+                        <button type="button" class="fan-icon-btn" id="notifBell" onclick="toggleFanDropdown('notifMenu', event)" title="Notifikasi Ujian & Aktivitas">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
                             <?php if ($totalNotif > 0): ?>
-                                <span style="background: #059669; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700;"><?= $totalNotif ?></span>
+                                <span class="fan-icon-badge" style="background: <?= $notifBlocked > 0 ? '#ef4444' : '#10b981' ?>;"></span>
                             <?php endif; ?>
-                        </div>
-
-                        <?php if ($notifBlocked > 0): ?>
-                            <a href="monitor.php" class="dropdown-item" style="background: #fef2f2; border-left: 3px solid #ef4444;">
-                                <div style="font-weight: 700; color: #b91c1c;">⚠️ <?= $notifBlocked ?> Siswa Terblokir</div>
-                                <div class="dropdown-sub" style="color: #991b1b;">Pelanggaran terdeteksi &bull; Buka Live Monitor &rarr;</div>
-                            </a>
-                        <?php endif; ?>
-
-                        <?php if ($notifLiveCount > 0): ?>
-                            <a href="monitor.php" class="dropdown-item" style="background: #f0fdf4; border-left: 3px solid #10b981;">
-                                <div style="font-weight: 700; color: #047857;">🟢 <?= $notifLiveCount ?> Siswa Sedang Ujian</div>
-                                <div class="dropdown-sub" style="color: #065f46;">Sesi berlangsung &bull; Buka Live Monitor &rarr;</div>
-                            </a>
-                        <?php endif; ?>
-
-                        <?php if (!empty($notifExams)): ?>
-                            <?php foreach ($notifExams as $ne): ?>
-                                <a href="monitor.php?exam_id=<?= (int)$ne['id'] ?>" class="dropdown-item">
-                                    <div style="font-weight: 700; color: #1e293b;">📝 <?= htmlspecialchars($ne['title']) ?></div>
-                                    <div class="dropdown-sub">Berakhir <?= date('d M Y, H:i', strtotime($ne['end_time'])) ?> &bull; Monitor &rarr;</div>
-                                </a>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-
-                        <?php if ($totalNotif === 0): ?>
-                            <div style="padding: 24px 16px; text-align: center; color: #64748b;">
-                                <div style="font-size: 26px; margin-bottom: 6px; color: #10b981;">&#10004;</div>
-                                <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 2px;">Semua Sesi Normal</div>
-                                <div style="font-size: 11.5px; color: #94a3b8;">Tidak ada siswa terblokir atau ujian aktif mendesak.</div>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right" id="notifMenu" onclick="event.stopPropagation()">
+                            <div class="dropdown-title">
+                                <span>🔔 Notifikasi Ujian</span>
+                                <?php if ($totalNotif > 0): ?>
+                                    <span style="background: #059669; color: #ffffff; padding: 2px 8px; border-radius: 9999px; font-size: 10px; font-weight: 700;"><?= $totalNotif ?></span>
+                                <?php endif; ?>
                             </div>
-                        <?php endif; ?>
 
-                        <div style="padding: 10px 16px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px;">
-                            <a href="monitor.php" style="color: #059669; font-weight: 700; text-decoration: none;">Live Monitor &rarr;</a>
-                            <a href="exams.php" style="color: #64748b; font-weight: 600; text-decoration: none;">Jadwal Ujian</a>
+                            <?php if ($notifBlocked > 0): ?>
+                                <a href="monitor.php" class="dropdown-item" style="background: #fef2f2; border-left: 3px solid #ef4444;">
+                                    <div style="font-weight: 700; color: #b91c1c;">⚠️ <?= $notifBlocked ?> Siswa Terblokir</div>
+                                    <div class="dropdown-sub" style="color: #991b1b;">Pelanggaran terdeteksi &bull; Buka Live Monitor &rarr;</div>
+                                </a>
+                            <?php endif; ?>
+
+                            <?php if ($notifLiveCount > 0): ?>
+                                <a href="monitor.php" class="dropdown-item" style="background: #f0fdf4; border-left: 3px solid #10b981;">
+                                    <div style="font-weight: 700; color: #047857;">🟢 <?= $notifLiveCount ?> Siswa Sedang Ujian</div>
+                                    <div class="dropdown-sub" style="color: #065f46;">Sesi berlangsung &bull; Buka Live Monitor &rarr;</div>
+                                </a>
+                            <?php endif; ?>
+
+                            <?php if (!empty($notifExams)): ?>
+                                <?php foreach ($notifExams as $ne): ?>
+                                    <a href="monitor.php?exam_id=<?= (int)$ne['id'] ?>" class="dropdown-item">
+                                        <div style="font-weight: 700; color: #1e293b;">📝 <?= htmlspecialchars($ne['title']) ?></div>
+                                        <div class="dropdown-sub">Berakhir <?= date('d M Y, H:i', strtotime($ne['end_time'])) ?> &bull; Monitor &rarr;</div>
+                                    </a>
+                                <?php endforeach; ?>
+                            <?php endif; ?>
+
+                            <?php if ($totalNotif === 0): ?>
+                                <div style="padding: 24px 16px; text-align: center; color: #64748b;">
+                                    <div style="font-size: 26px; margin-bottom: 6px; color: #10b981;">&#10004;</div>
+                                    <div style="font-weight: 700; font-size: 13px; color: #1e293b; margin-bottom: 2px;">Semua Sesi Normal</div>
+                                    <div style="font-size: 11.5px; color: #94a3b8;">Tidak ada siswa terblokir atau ujian aktif mendesak.</div>
+                                </div>
+                            <?php endif; ?>
+
+                            <div style="padding: 10px 16px; background: #f8fafc; border-top: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; font-size: 11.5px;">
+                                <a href="monitor.php" style="color: #059669; font-weight: 700; text-decoration: none;">Live Monitor &rarr;</a>
+                                <a href="exams.php" style="color: #64748b; font-weight: 600; text-decoration: none;">Jadwal Ujian</a>
+                            </div>
                         </div>
                     </div>
-                </div>
 
-                <div class="dropdown-wrap" style="position: relative;">
-                    <button type="button" class="fan-icon-btn" id="userPillBtn" onclick="toggleFanDropdown('userMenu', event)" title="Menu Pengguna" style="width: auto; padding: 0 10px 0 5px; gap: 7px;">
-                        <span style="width: 26px; height: 26px; border-radius: 8px; background: #059669; color: #fff; font-size: 11px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;"><?= $initials ?></span>
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
-                    </button>
-                    <div class="dropdown-menu dropdown-menu-right" id="userMenu" onclick="event.stopPropagation()" style="right: 0; min-width: 220px !important;">
-                        <div style="padding: 12px 16px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
-                            <div style="font-weight: 700; font-size: 13px; color: #0f172a;"><?= htmlspecialchars($user['name'] ?? '-') ?></div>
-                            <div style="font-size: 11px; color: #64748b; margin-top: 2px;"><?= ucfirst(htmlspecialchars($user['role'] ?? 'User')) ?> &bull; <?= htmlspecialchars($school['name'] ?? 'CBT Online') ?></div>
+                    <div class="dropdown-wrap" style="position: relative;">
+                        <button type="button" class="fan-icon-btn" id="userPillBtn" onclick="toggleFanDropdown('userMenu', event)" title="Menu Pengguna" style="width: auto; padding: 0 8px; gap: 6px;">
+                            <span style="width: 24px; height: 24px; border-radius: 7px; background: #059669; color: #fff; font-size: 10px; font-weight: 800; display: inline-flex; align-items: center; justify-content: center;"><?= $initials ?></span>
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                        </button>
+                        <div class="dropdown-menu dropdown-menu-right" id="userMenu" onclick="event.stopPropagation()" style="right: 0; min-width: 200px !important;">
+                            <div style="padding: 10px 14px; border-bottom: 1px solid #f1f5f9; background: #f8fafc;">
+                                <div style="font-weight: 700; font-size: 13px; color: #0f172a;"><?= htmlspecialchars($user['name'] ?? '-') ?></div>
+                                <div style="font-size: 11px; color: #64748b; margin-top: 2px;"><?= ucfirst(htmlspecialchars($user['role'] ?? 'User')) ?> &bull; <?= htmlspecialchars($school['name'] ?? 'CBT Online') ?></div>
+                            </div>
+                            <a href="profile.php" class="dropdown-item">⚙️ Profil &amp; Keamanan Akun</a>
+                            <a href="<?= htmlspecialchars($portalDashboardUrl) ?>" class="dropdown-item">🌐 Kembali ke Portal Veyra</a>
+                            <a href="../logout.php" class="dropdown-item" style="color: #ef4444; font-weight: 700;">🚪 Keluar Sesi</a>
                         </div>
-                        <a href="profile.php" class="dropdown-item">⚙️ Profil &amp; Keamanan Akun</a>
-                        <a href="<?= htmlspecialchars($portalDashboardUrl) ?>" class="dropdown-item">🌐 Kembali ke Portal Veyra</a>
-                        <a href="../logout.php" class="dropdown-item" style="color: #ef4444; font-weight: 700;">🚪 Keluar Sesi</a>
                     </div>
-                </div>
             </div>
         </div>
 

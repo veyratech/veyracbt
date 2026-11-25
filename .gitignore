@@ -1,0 +1,33 @@
+# Session files
+.sessions/
+*.session
+
+# Logs
+ Reqtrace.log
+*_reqtrace.log
+logs/
+*.log
+
+# Rate limits (generated at runtime)
+storage/rate_limits/
+
+# Uploaded files (not in repo)
+assets/uploads/logos/*
+!assets/uploads/logos/.gitkeep
+
+# Composer
+/vendor/
+composer.lock
+
+# Node
+/node_modules/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo

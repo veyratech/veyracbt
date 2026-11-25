@@ -64,8 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $name   = trim($_POST['name'] ?? '');
             if ($id <= 0) throw new RuntimeException('ID tidak valid.');
             if (empty($name)) throw new RuntimeException('Nama wajib diisi.');
-            Database::update('exam_types', ['name' => $name], 'id = :id AND tenant_id = :tenant_id',
-                ['id' => $id, 'tenant_id' => $tenantId]);
+            Database::update('exam_types', ['name' => $name], 'id = ? AND tenant_id = ?',
+                [$id, $tenantId]);
             Helper::setFlash('success', "Jenis ujian berhasil diperbarui.");
 
         } elseif ($action === 'delete') {
@@ -77,8 +77,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($banck > 0) {
                 throw new RuntimeException("Jenis ujian ini masih dipakai oleh {$banck} bank soal. Ubah terlebih dahulu di menu Bank Soal.");
             }
-            Database::delete('exam_types', 'id = :id AND tenant_id = :tenant_id',
-                ['id' => $id, 'tenant_id' => $tenantId]);
+            Database::delete('exam_types', 'id = ? AND tenant_id = ?',
+                [$id, $tenantId]);
             Helper::setFlash('success', 'Jenis ujian berhasil dihapus.');
 
         } elseif ($action === 'move_up' || $action === 'move_down') {
@@ -94,10 +94,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     [$tenantId, $cur + $dir]
                 );
                 if ($swap) {
-                    Database::update('exam_types', ['sort_order' => $cur + $dir], 'id = :id AND tenant_id = :tenant_id',
-                        ['id' => $id, 'tenant_id' => $tenantId]);
-                    Database::update('exam_types', ['sort_order' => $cur], 'id = :id AND tenant_id = :tenant_id',
-                        ['id' => $swap, 'tenant_id' => $tenantId]);
+                    Database::update('exam_types', ['sort_order' => $cur + $dir], 'id = ? AND tenant_id = ?',
+                        [$id, $tenantId]);
+                    Database::update('exam_types', ['sort_order' => $cur], 'id = ? AND tenant_id = ?',
+                        [$swap, $tenantId]);
                 }
             }
         }
@@ -134,7 +134,7 @@ require_once __DIR__ . '/header.php';
             </p>
         </div>
         <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-            <button type="button" class="btn btn-primary btn-sm" onclick="var m=document.getElementById('modalAddType');m.classList.add('modal-show');">
+            <button type="button" class="btn btn-primary btn-sm" onclick="toggleModalAddType(true);">
                 + Tambah Jenis Ujian
             </button>
         </div>
@@ -153,8 +153,7 @@ require_once __DIR__ . '/header.php';
                 </div>
                 <div style="font-weight: 700; color: #1e293b; font-size: 15px; margin-bottom: 4px;">Belum Ada Jenis Ujian</div>
                 <div style="font-size: 12.5px; margin-bottom: 18px;">Tambahkan jenis ujian agar bisa dipilih saat membuat atau mengimpor bank soal.</div>
-                <button type="button" class="btn btn-primary btn-sm"
-                    onclick="var m=document.getElementById('modalAddType');m.classList.add('modal-show');">+ Tambah Jenis Ujian</button>
+                <button type="button" class="btn btn-primary btn-sm" onclick="toggleModalAddType(true);">+ Tambah Jenis Ujian</button>
             </div>
         <?php else: ?>
             <div class="table-responsive">
@@ -175,19 +174,21 @@ require_once __DIR__ . '/header.php';
                                 <td><b><?= htmlspecialchars($et['name']) ?></b></td>
                                 <td><code style="font-size: 12px;"><?= htmlspecialchars($et['slug']) ?></code></td>
                                 <td style="text-align: center;">
-                                    <form method="POST" style="display: inline-flex; gap: 4px;" onsubmit="return false;">
+                                    <form method="POST" style="display: inline-flex; gap: 4px;">
                                         <?= Helper::csrfField() ?>
                                         <input type="hidden" name="action" value="move_up">
                                         <input type="hidden" name="id" value="<?= $et['id'] ?>">
                                         <button type="submit" class="btn btn-outline btn-sm <?= $idx === 0 ? 'disabled' : '' ?>"
-                                            <?= $idx === 0 ? 'disabled title="Sudah paling atas"' : '' ?>>↑</button>
+                                            title="<?= $idx === 0 ? 'Sudah paling atas' : 'Pindahkan ke atas' ?>"
+                                            <?= $idx === 0 ? 'disabled' : '' ?>>↑</button>
                                     </form>
-                                    <form method="POST" style="display: inline-flex; gap: 4px;" onsubmit="return false;">
+                                    <form method="POST" style="display: inline-flex; gap: 4px;">
                                         <?= Helper::csrfField() ?>
                                         <input type="hidden" name="action" value="move_down">
                                         <input type="hidden" name="id" value="<?= $et['id'] ?>">
                                         <button type="submit" class="btn btn-outline btn-sm <?= $idx === count($examTypes) - 1 ? 'disabled' : '' ?>"
-                                            <?= $idx === count($examTypes) - 1 ? 'disabled title="Sudah paling bawah"' : '' ?>>↓</button>
+                                            title="<?= $idx === count($examTypes) - 1 ? 'Sudah paling bawah' : 'Pindahkan ke bawah' ?>"
+                                            <?= $idx === count($examTypes) - 1 ? 'disabled' : '' ?>>↓</button>
                                     </form>
                                 </td>
                                 <td style="text-align: right; white-space: nowrap;">
@@ -210,7 +211,7 @@ require_once __DIR__ . '/header.php';
 </div>
 
 <!-- MODAL TAMBAH / EDIT -->
-<div id="modalAddType" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.55);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;padding:20px;" class="<?= $editType ? 'modal-show' : '' ?>" role="dialog" aria-labelledby="modalAddTypeLabel">
+<div id="modalAddType" class="modal-backdrop" style="position:fixed;inset:0;z-index:9999;background:rgba(15,23,42,0.55);backdrop-filter:blur(5px);display:none;align-items:center;justify-content:center;padding:20px;" role="dialog" aria-labelledby="modalAddTypeLabel">
     <div class="modal-dialog" role="document">
         <form method="POST" action="./exam-types.php">
             <?= Helper::csrfField() ?>
@@ -222,11 +223,7 @@ require_once __DIR__ . '/header.php';
                 <h3 id="modalAddTypeLabel" style="font-size: 16px; font-weight: 700;">
                     <?= $editType ? 'Edit Jenis Ujian' : 'Tambah Jenis Ujian Baru' ?>
                 </h3>
-                <?php if ($editType): ?>
-                    <a href="exam-types.php" class="btn btn-outline btn-sm">&times;</a>
-                <?php else: ?>
-                    <button type="button" class="btn btn-outline btn-sm" data-close-modal>&times;</button>
-                <?php endif; ?>
+                <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('modalAddType').style.display='none'">&times;</button>
             </div>
             <div class="modal-body">
                 <div class="form-group">
@@ -246,11 +243,7 @@ require_once __DIR__ . '/header.php';
                 </div>
             </div>
             <div class="modal-footer">
-                <?php if ($editType): ?>
-                    <a href="exam-types.php" class="btn btn-outline">Batal</a>
-                <?php else: ?>
-                    <button type="button" class="btn btn-outline" data-close-modal>Batal</button>
-                <?php endif; ?>
+                <button type="button" class="btn btn-outline" onclick="document.getElementById('modalAddType').style.display='none'">Batal</button>
                 <button type="submit" class="btn btn-primary">
                     <?= $editType ? 'Simpan Perubahan' : 'Simpan' ?>
                 </button>
@@ -262,16 +255,37 @@ require_once __DIR__ . '/header.php';
 <?php require_once __DIR__ . '/footer.php'; ?>
 <style>
 .modal-show { display: flex !important; }
+.btn.disabled, button[disabled] {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
 </style>
 <script>
+// Unified modal control — semua tombol pakai fungsi ini
+window.toggleModalAddType = function(show) {
+    var m = document.getElementById('modalAddType');
+    if (!m) return;
+    m.style.display = show ? 'flex' : 'none';
+};
+
 (function () {
     var m = document.getElementById('modalAddType');
     if (!m) return;
+
+    // Auto-buka kalau URL punya ?edit=X
+    if (window.location.search.indexOf('edit=') !== -1) {
+        m.style.display = 'flex';
+    }
+
+    // Klik backdrop (area gelap) → tutup modal
     m.addEventListener('click', function (e) {
-        if (e.target === m && !e.target.querySelector('form')) m.classList.remove('modal-show');
+        if (e.target === m) m.style.display = 'none';
     });
+
+    // Escape key → tutup modal
     document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape' && m.classList.contains('modal-show')) m.classList.remove('modal-show');
+        if (e.key === 'Escape' && m.style.display !== 'none') m.style.display = 'none';
     });
 })();
 </script>

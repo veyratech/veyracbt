@@ -7,6 +7,16 @@
 $pageTitle = "Pusat Kontrol Superadmin";
 require_once __DIR__ . '/header.php';
 
+// Helper: human-readable time difference
+function diffForHumans(int $timestamp): string {
+    $diff = time() - $timestamp;
+    if ($diff < 60) return 'Baru saja';
+    if ($diff < 3600) return floor($diff/60) . ' menit lalu';
+    if ($diff < 86400) return floor($diff/3600) . ' jam lalu';
+    if ($diff < 604800) return floor($diff/86400) . ' hari lalu';
+    return date('d M Y', $timestamp);
+}
+
 // 1. Data Platform & Tenants
 $tenants = Database::fetchAll(
     "SELECT t.*,
@@ -135,6 +145,23 @@ $cbtCards = [
 ];
 
 $initialFilter = $_GET['filter'] ?? 'all';
+
+// ── Command Center Extras ────────────────────────────────
+$_recentActivity = Database::fetchAll(
+    "SELECT al.message, al.created_at, st.name AS student_name, t.name AS tenant_name
+     FROM activity_logs al
+     JOIN exam_sessions es ON al.session_id = es.id
+     JOIN students st ON es.student_id = st.id
+     JOIN tenants t ON es.tenant_id = t.id
+     ORDER BY al.id DESC LIMIT 8",
+    []
+);
+$_newTenants = Database::fetchAll(
+    "SELECT id, name, code, current_students
+     FROM (SELECT t.*, (SELECT COUNT(*) FROM students s WHERE s.tenant_id=t.id) AS current_students
+           FROM tenants t ORDER BY t.created_at DESC LIMIT 5) AS x",
+    []
+);
 ?>
 
 <style>
@@ -582,6 +609,43 @@ $initialFilter = $_GET['filter'] ?? 'all';
         margin-left: 6px;
     }
 }
+
+/* ── COMMAND CENTER EXTRAS ─────────────────────────── */
+.command-ticker {
+    background: linear-gradient(90deg, #0f172a, #1e293b);
+    border-radius: 12px; padding: 10px 18px; display: flex; align-items: center; gap: 12px;
+    overflow: hidden; position: relative;
+}
+.command-ticker-label {
+    background: #ef4444; color: #fff; font-size: 10px; font-weight: 800;
+    padding: 3px 8px; border-radius: 6px; white-space: nowrap; text-transform: uppercase; letter-spacing: .5px;
+    animation: pulse 1.5s infinite; flex-shrink: 0;
+}
+@keyframes pulse { 0%,100%{opacity:1}50%{opacity:.6} }
+.command-ticker-track {
+    flex: 1; overflow: hidden; position: relative; height: 20px;
+}
+.command-ticker-content {
+    position: absolute; white-space: nowrap;
+    animation: tickerScroll 30s linear infinite;
+    font-size: 12px; color: #94a3b8; font-weight: 500;
+}
+@keyframes tickerScroll { from{transform:translateX(100%)}to{transform:translateX(-100%)} }
+.command-ticker-content span { color: #e2e8f0; font-weight: 700; }
+
+.recent-tenants {
+    background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.1);
+    border-radius: 14px; padding: 14px 18px; backdrop-filter: blur(8px);
+}
+.recent-tenants-title { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .6px; color: #64748b; margin-bottom: 10px; }
+.recent-tenant-row {
+    display: flex; align-items: center; gap: 10px; padding: 7px 0;
+    border-bottom: 1px solid rgba(255,255,255,.06); font-size: 12px; color: #cbd5e1;
+}
+.recent-tenant-row:last-child { border-bottom: none; }
+.recent-tenant-dot { width: 8px; height: 8px; border-radius: 50%; background: #10b981; flex-shrink: 0; }
+.recent-tenant-name { flex: 1; font-weight: 600; color: #e2e8f0; }
+.recent-tenant-students { color: #94a3b8; font-size: 11px; }
 </style>
 
 <div class="boardto-reporting-wrap">
@@ -602,6 +666,26 @@ $initialFilter = $_GET['filter'] ?? 'all';
             </svg>
         </a>
     </div>
+
+    <!-- LIVE ACTIVITY TICKER -->
+    <?php if (!empty($_recentActivity)): ?>
+    <div class="command-ticker">
+        <div class="command-ticker-label">&#9679; LIVE</div>
+        <div class="command-ticker-track">
+            <div class="command-ticker-content">
+                <?php foreach ($_recentActivity as $i => $act):
+                    $timeAgo = diffForHumans(strtotime($act['created_at']));
+                    $sep = ($i < count($_recentActivity) - 1) ? ' &nbsp;&#124;&nbsp; ' : '';
+                ?>
+                    <span><?= htmlspecialchars($act['student_name'] ?? 'Sistem') ?></span>
+                    <?= htmlspecialchars($act['message']) ?>
+                    <span style="color:#64748b;font-weight:400;">· <?= htmlspecialchars($act['tenant_name'] ?? '') ?></span>
+                    <?= $sep ?>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- ========================================================
          SECTION 2: FILTER PILLS & VIEW CONTROLS

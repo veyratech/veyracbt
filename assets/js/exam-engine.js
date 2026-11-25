@@ -16,6 +16,7 @@ class CBTEngine {
         this.apiUrl = config.apiUrl || 'api-save.php';
         this.finishUrl = config.finishUrl || 'finish.php';
         this.csrfToken = config.csrfToken || '';
+        this.isPractice = config.isPractice === true;
         this.timerInterval = null;
         this.isSubmitting = false;
         this.warn5MinShown = false;
@@ -39,8 +40,11 @@ class CBTEngine {
         this.applyFontSize(this.currentFontSize);
         this.initBeforeUnload();
         this.startTimer();
-        this.initAntiCheat();
-        this.initFullscreen();
+        // Mode latihan: tidak ada anti-cheat & fullscreen wajib
+        if (!this.isPractice) {
+            this.initAntiCheat();
+            this.initFullscreen();
+        }
         this.renderQuestion(0);
         this.updateNavGrid();
         this.initHeartbeat();
@@ -121,6 +125,13 @@ class CBTEngine {
 
     startTimer() {
         this.updateTimerDisplay();
+        // Mode latihan: timer statis, tidak ada hitung mundur
+        if (this.isPractice) {
+            if (this.elTimer) this.elTimer.textContent = '∞';
+            const elMobile = document.getElementById('timerDisplayMobile');
+            if (elMobile) elMobile.textContent = '∞';
+            return;
+        }
         this.timerInterval = setInterval(() => {
             if (this.remainingSeconds <= 0) {
                 clearInterval(this.timerInterval);
@@ -965,6 +976,8 @@ class CBTEngine {
     }
 
     async initWebcam() {
+        // Mode latihan: tidak perlu webcam/proctoring
+        if (this.isPractice) return;
         const video = document.getElementById('cbtWebcamVideo');
         const placeholder = document.getElementById('cbtWebcamPlaceholder');
         const badge = document.getElementById('webcamStatusBadge');

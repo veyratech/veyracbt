@@ -27,6 +27,7 @@ Auth::refreshActivity();
 $data   = json_decode(file_get_contents('php://input'), true) ?: [];
 $action = (string)($data['action'] ?? 'save_answer');
 $sessionId = (int)($data['session_id'] ?? 0);
+$isPractice = !empty($_SESSION['practice_mode']) && $_SESSION['practice_mode'] === true;
 
 // ── CSRF: token dari payload atau header ──
 $csrf     = (string)($data['csrf_token'] ?? $data['_csrf'] ?? $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '');
@@ -51,6 +52,26 @@ $session = Database::fetch(
      WHERE es.id = ? AND es.student_id = ? AND es.tenant_id = ?",
     [$sessionId, (int)$me['id'], (int)$me['tenant_id']]
 );
+// Untuk mode latihan: cek juga via practice_sessions
+if (!$session) {
+    $ps = Database::fetch(
+        "SELECT ps.id, ps.bank_id, ps.total_questions, ps.score,
+                q.title as bank_title, e.title as exam_title
+         FROM practice_sessions ps
+         JOIN question_banks q ON ps.bank_id = q.id
+         LEFT JOIN exams e ON e.id = ps.bank_id
+         WHERE ps.id = ? AND ps.student_id = ? AND ps.tenant_id = ?",
+        [$sessionId, (int)$me['id'], (int)$me['tenant_id']]
+    );
+    if ($ps) {
+        $isPractice = true;
+        $session = [
+            'id' => $ps['id'], 'tenant_id' => (int)$me['tenant_id'],
+            'status' => 'in_progress', 'max_violations' => 999,
+            'exam_id' => 0, 'extra_time_minutes' => 0,
+        ];
+    }
+}
 if (!$session) {
     http_response_code(404);
     echo json_encode(['success' => false, 'error' => 'Sesi ujian tidak ditemukan']);
@@ -87,9 +108,23 @@ $currentScore = function () use ($sessionId): float {
 
 /* ────────────────────────────────────────────────────────────────
  * HEARTBEAT — denyut jantung monitor live (setiap 10 detik)
+ * Mode latihan: heartbeat tetap jalan tapi tanpa cek status ujian resmi
  * ──────────────────────────────────────────────────────────────── */
 if ($action === 'heartbeat') {
     $touch();
+
+    if ($isPractice) {
+        // Mode latihan: heartbeat ringan, tidak perlu broadcast
+        echo json_encode([
+            'success'            => true,
+            'session_status'     => 'in_progress',
+            'extra_time_minutes' => 0,
+            'remaining_seconds'  => -1,  // -1 = tak terbatas untuk latihan
+            'time_expired'       => false,
+            'announcements'      => [],
+        ]);
+        exit;
+    }
 
     $announcements = [];
     if (Database::tableExists('exam_broadcasts')) {
@@ -117,8 +152,13 @@ if ($action === 'heartbeat') {
 
 /* ────────────────────────────────────────────────────────────────
  * LOG PELANGGARAN — dihitung di server, blokir saat mencapai batas
+ * Mode latihan: abaikan pelanggaran (latihan tidak ada proctoring)
  * ──────────────────────────────────────────────────────────────── */
 if ($action === 'log_violation') {
+    if ($isPractice) {
+        echo json_encode(['success' => true, 'ignored' => true, 'session_status' => $status]);
+        exit;
+    }
     if ($status === 'blocked') $blockedResp();
     if ($status !== 'in_progress') {
         echo json_encode(['success' => true, 'ignored' => true, 'session_status' => $status]);
@@ -167,13 +207,14 @@ if ($action === 'log_violation') {
 /* ────────────────────────────────────────────────────────────────
  * Aksi berikut butuh sesi masih berjalan
  * ──────────────────────────────────────────────────────────────── */
-$requireRunning = function () use ($status, $blockedResp, $remaining, $currentScore) {
+$requireRunning = function () use ($status, $blockedResp, $remaining, $currentScore, $isPractice) {
     if ($status === 'blocked') $blockedResp();
     if ($status !== 'in_progress') {
         echo json_encode(['success' => false, 'blocked' => true, 'session_status' => $status]);
         exit;
     }
-    if ($remaining <= 0) {
+    // Mode latihan: tidak ada batasan waktu
+    if (!$isPractice && $remaining <= 0) {
         echo json_encode(['success' => false, 'time_expired' => true, 'score' => $currentScore()]);
         exit;
     }
@@ -263,8 +304,37 @@ if ($action === 'save_answer' || $action === 'toggle_doubt') {
 
 /* ────────────────────────────────────────────────────────────────
  * FINISH — finish.php yang menyelesaikan & menilai sesi
+ * Mode latihan: hitung skor → simpan ke practice_sessions
  * ──────────────────────────────────────────────────────────────── */
 if ($action === 'finish_exam') {
+    if ($isPractice) {
+        // Hitung skor dan simpan ke practice_sessions
+        $row = Database::fetch(
+            "SELECT
+                SUM(CASE WHEN student_answer IS NOT NULL AND is_correct = 1 THEN 1 ELSE 0 END) AS correct,
+                COUNT(*) AS total
+             FROM exam_answers WHERE session_id = ? AND student_answer IS NOT NULL",
+            [$sessionId]
+        );
+        $total   = (int)($row['total'] ?? 0);
+        $correct = (int)($row['correct'] ?? 0);
+        $score   = $total > 0 ? round(($correct / $total) * 100, 2) : 0;
+
+        // Simpan ke practice_sessions (bukan exam_sessions)
+        $psId = (int)($_SESSION['practice_session_id'] ?? 0);
+        if ($psId > 0) {
+            Database::update('practice_sessions', [
+                'score'         => $score,
+                'correct_count' => $correct,
+                'wrong_count'   => $total - $correct,
+                'blank_count'   => $total > 0 ? $total - $correct : 0,
+            ], 'id = ? AND tenant_id = ?', [$psId, $tenantId]);
+        }
+
+        $_SESSION['practice_mode'] = false;
+        echo json_encode(['success' => true, 'session_status' => 'completed', 'score' => $score]);
+        exit;
+    }
     if ($status === 'blocked') $blockedResp();
     if ($status === 'completed') {
         echo json_encode(['success' => true, 'session_status' => 'completed']);
@@ -280,8 +350,10 @@ if ($action === 'finish_exam') {
 
 /* ────────────────────────────────────────────────────────────────
  * WEBCAM — status izin & frame terakhir untuk monitor pengawas
+ * Mode latihan: abaikan (tidak ada proctoring)
  * ──────────────────────────────────────────────────────────────── */
 if ($action === 'webcam_status') {
+    if ($isPractice) { echo json_encode(['success' => true, 'ignored' => true]); exit; }
     $st = (string)($data['status'] ?? '');
     if (!in_array($st, ['active', 'denied', 'disabled'], true)) {
         http_response_code(400);
@@ -294,7 +366,7 @@ if ($action === 'webcam_status') {
 }
 
 if ($action === 'upload_webcam') {
-    if ($status !== 'in_progress') {
+    if ($isPractice || $status !== 'in_progress') {
         echo json_encode(['success' => false, 'ignored' => true]);
         exit;
     }

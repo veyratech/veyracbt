@@ -31,11 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'phone'   => $phone !== '' ? $phone : null,
         ];
 
-        // Upload logo (opsional)
+        // Upload logo (opsional) — update DB langsung agar tidak tercampur dengan field lain
         if (!empty($_FILES['logo']['tmp_name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['logo'];
             if ($file['size'] > 1024 * 1024) {
-                Helper::setFlash('danger', 'Ukuran logo maksimal 1 MB.');
+                Helper::setFlash('danger', 'Ukuran logo maksimal 5 MB.');
                 Helper::redirect('admin/settings.php');
             }
             $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
@@ -50,32 +50,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $nameFile = 'logo_t' . $tenantId . '_' . bin2hex(random_bytes(6)) . '_' . time() . '.' . $ext;
             $destDir = __DIR__ . '/../assets/uploads/logos';
             if (!is_dir($destDir)) mkdir($destDir, 0755, true);
-            if (move_uploaded_file($file['tmp_name'], $destDir . '/' . $nameFile)) {
-                $logoPath = $destDir . '/' . $nameFile;
-                Helper::optimizeQuestionImage($logoPath);
-                $data['logo_url'] = 'assets/uploads/logos/' . $nameFile;
-                $_SESSION['school_logo'] = $data['logo_url'];
+            $dst = $destDir . '/' . $nameFile;
+            if (copy($file['tmp_name'], $dst)) {
+                Helper::optimizeQuestionImage($dst);
+                $newLogoUrl = 'assets/uploads/logos/' . $nameFile;
+                // Update DB langsung (pisah dari update profil utama agar tidak bentrok parameter named)
+                Database::update('tenants', ['logo_url' => $newLogoUrl], 'id = ?', [(int)$tenantId]);
+                $_SESSION['school_logo'] = $newLogoUrl;
+                $previewLogo = $newLogoUrl;
             } else {
                 Helper::setFlash('danger', 'Gagal menyimpan file logo.');
                 Helper::redirect('admin/settings.php');
             }
         }
 
-        Database::update('tenants', $data, 'id = :id', ['id' => $tenantId]);
+        Database::update('tenants', $data, 'id = ?', [$tenantId]);
         $_SESSION['school_name'] = $name;
         Helper::setFlash('success', 'Pengaturan sekolah berhasil diperbarui.');
         Helper::redirect('admin/settings.php');
     }
 }
 
-// Muat ulang data terbaru
-$school = Tenant::get();
+// Muat ulang data terbaru — langsung query DB untuk menghindari cache stale dari Tenant::get()
+$freshSchool = Database::fetch("SELECT * FROM tenants WHERE id = ?", [$tenantId]);
+$school = $freshSchool ?: Tenant::get();
 $previewLogo = !empty($school['logo_url'])
     ? $school['logo_url']
-    : ($_SESSION['school_logo'] ?? $school['logo'] ?? $school['logo_path'] ?? null);
+    : ($_SESSION['school_logo'] ?? null);
+// Fallback: scan folder fisik jika path di DB/session tidak ada atau hilang
+if (!$previewLogo || !file_exists(__DIR__ . '/../' . ltrim(str_replace('../', '', $previewLogo), '/'))) {
+    $fallbackDir = __DIR__ . '/../assets/uploads/logos';
+    if (is_dir($fallbackDir)) {
+        // GLOB_BRACE tidak support di Windows → loop per ekstensi
+        $candidates = [];
+        foreach (['jpg', 'jpeg', 'png', 'webp'] as $ext) {
+            $candidates = array_merge($candidates, glob($fallbackDir . '/logo_t' . $tenantId . '_*.' . $ext));
+        }
+        if (!empty($candidates)) {
+            $latest = max($candidates);
+            $previewLogo = 'assets/uploads/logos/' . basename($latest);
+        }
+    }
+}
 if ($previewLogo && !str_starts_with($previewLogo, 'http') && !str_starts_with($previewLogo, '/') && !str_starts_with($previewLogo, 'data:')) {
     if (file_exists(__DIR__ . '/../' . $previewLogo)) {
         $previewLogo = '../' . $previewLogo;
+    } else {
+        $previewLogo = null;
     }
 }
 

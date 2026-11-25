@@ -124,13 +124,15 @@ if ($examId > 0) {
 }
 
 // ── Score range bucket ────────────────────────────────────────────────
+$whereTimeNoAlias = str_replace('es.', '', $whereTime);
+$examWhereNoAlias = str_replace('es.', '', $examWhere);
 $buckets = Database::fetch(
     "SELECT
         SUM(CASE WHEN score >= 80 THEN 1 ELSE 0 END) AS high,
         SUM(CASE WHEN score >= 60 AND score < 80 THEN 1 ELSE 0 END) AS med,
         SUM(CASE WHEN score < 60 THEN 1 ELSE 0 END) AS low
      FROM exam_sessions
-     WHERE tenant_id = ? AND status = 'completed' {$whereTime} {$examWhere}",
+     WHERE tenant_id = ? AND status = 'completed' {$whereTimeNoAlias} {$examWhereNoAlias}",
     [$tenantId]
 );
 

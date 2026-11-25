@@ -113,7 +113,7 @@ if ($tab === 'latihan') {
         });
     </script>
     <?php if (empty($practiceList)): ?>
-        <div class="empty-msg">Belum ada riwayat latihan.</div>
+        <div class="empty-msg">Belum ada riwayat latihan. <a href="practice.php" style="color:#0284c7;font-weight:700;">Mulai Latihan →</a></div>
     <?php else: foreach ($practiceList as $p): ?>
         <div class="hist-card">
             <div class="hist-info">
@@ -121,7 +121,12 @@ if ($tab === 'latihan') {
                 <div class="hist-meta"><?= htmlspecialchars($p['subject_name']) ?> · <?= date('d M Y', strtotime($p['created_at'])) ?></div>
             </div>
             <div class="hist-score">
-                <div style="font-size:13px;font-weight:700;color:var(--text);"><?= (int)$p['total_questions'] ?> Soal</div>
+                <?php if ((float)$p['score'] > 0): ?>
+                    <div class="hist-score-val"><?= number_format((float)$p['score'], 1) ?></div>
+                    <div class="hist-score-lbl">NILAI</div>
+                <?php else: ?>
+                    <div style="font-size:12px;color:var(--muted);"><?= (int)$p['total_questions'] ?> Soal</div>
+                <?php endif; ?>
             </div>
         </div>
     <?php endforeach; endif; ?>

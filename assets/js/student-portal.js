@@ -179,13 +179,16 @@
         if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme:dark)').matches)) {
             document.documentElement.setAttribute('data-theme', 'dark');
         }
-        document.addEventListener('click', function(e) {
-            var btn = e.target.closest('[data-toggle-theme]');
-            if (!btn) return;
+        function toggleTheme() {
             var d = document.documentElement;
             var next = d.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
             d.setAttribute('data-theme', next);
             try { localStorage.setItem('cbt_theme', next); } catch(x) {}
+        }
+        // Support both #themeToggle (student header) and [data-toggle-theme] buttons
+        document.addEventListener('click', function(e) {
+            var btn = e.target.closest('#themeToggle, [data-toggle-theme]');
+            if (btn) { e.preventDefault(); toggleTheme(); }
         });
         // Auto-submit tenant select on login page
         var sel = document.getElementById('tenantSelect');

@@ -815,11 +815,12 @@ html[data-theme="dark"] .stat-icon.green   { background: var(--success-bg); colo
 html[data-theme="dark"] .stat-icon.amber   { background: var(--warning-bg); color: #fbbf24; }
 html[data-theme="dark"] .stat-icon.red     { background: var(--danger-bg);  color: #f87171; }
 
-/* Mode icon swap */
-.theme-toggle .icon-sun { display: none; }
-.theme-toggle .icon-moon { display: block; }
-
+/* Mode icon swap — support #themeToggle (student) dan .theme-toggle (legacy) */
+#themeToggle .ic-sun, .theme-toggle .icon-sun { display: none; }
+#themeToggle .ic-moon, .theme-toggle .icon-moon { display: block; }
+html[data-theme="dark"] #themeToggle .ic-sun,
 html[data-theme="dark"] .theme-toggle .icon-sun { display: block; }
+html[data-theme="dark"] #themeToggle .ic-moon,
 html[data-theme="dark"] .theme-toggle .icon-moon { display: none; }
 
 /* ---------- Responsive ---------- */
@@ -3269,6 +3270,7 @@ body.admin-fan-page {
     .fan-app-canvas {
         flex-direction: column;
         border-radius: 18px;
+        overflow: visible !important;
     }
 }
 

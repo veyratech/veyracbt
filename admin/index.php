@@ -106,6 +106,41 @@ $exams = Database::fetchAll(
      LIMIT 10",
     [$tenantId]
 );
+
+// ── Smart Insights ───────────────────────────────────────
+$_lastWeekStart = date('Y-m-d', strtotime('-7 days'));
+$_thisWeekStart = date('Y-m-d');
+$examsThisWeek  = (int)Database::fetchColumn(
+    "SELECT COUNT(*) FROM exams WHERE tenant_id=? AND start_time>=?", [$tenantId, $_thisWeekStart]
+);
+$examsLastWeek  = (int)Database::fetchColumn(
+    "SELECT COUNT(*) FROM exams WHERE tenant_id=? AND start_time>=? AND start_time<?",
+    [$tenantId, $_lastWeekStart, $_thisWeekStart]
+);
+$trendPct = $examsLastWeek > 0 ? round((($examsThisWeek - $examsLastWeek) / max(1,$examsLastWeek)) * 100) : 0;
+$trendDir = $trendPct >= 0 ? 'up' : 'down';
+
+// Siswa berisiko: completed sessions dengan score < 60 dalam 14 hari
+$atRiskStudents = (int)Database::fetchColumn(
+    "SELECT COUNT(DISTINCT es.student_id) FROM exam_sessions es
+     JOIN students st ON es.student_id = st.id
+     WHERE es.tenant_id=? AND es.status='completed' AND es.score<60
+       AND es.finish_time>=DATE_SUB(CURDATE(),INTERVAL 14 DAY)",
+    [$tenantId]
+);
+
+// Soal tersulit: akurasi terendah
+$hardestQs = Database::fetchAll(
+    "SELECT q.id, LEFT(q.question_text,40) AS excerpt,
+            SUM(CASE WHEN ea.is_correct=1 THEN 1 ELSE 0 END) AS correct_cnt,
+            COUNT(*) AS total_cnt,
+            ROUND(SUM(CASE WHEN ea.is_correct=1 THEN 1 ELSE 0 END)/NULLIF(COUNT(*),0)*100,1) AS pct
+     FROM exam_answers ea JOIN questions q ON ea.question_id=q.id
+     JOIN exam_sessions es ON ea.session_id=es.id
+     WHERE es.tenant_id=? AND ea.student_answer IS NOT NULL
+     GROUP BY q.id ORDER BY pct ASC LIMIT 5",
+    [$tenantId]
+);
 ?>
 
 <style>
@@ -251,6 +286,69 @@ $exams = Database::fetchAll(
         border-color: #10b981;
     }
 
+    /* ── SMART INSIGHTS ─────────────────────────────── */
+    .insight-alerts { display: flex; gap: 12px; margin-bottom: 22px; flex-wrap: wrap; }
+    .insight-card {
+        flex: 1; min-width: 200px; border-radius: 14px; padding: 14px 16px;
+        border: 1px solid transparent; position: relative; overflow: hidden;
+    }
+    .insight-card::before {
+        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    }
+    .insight-card.warning { background: #fffbeb; border-color: #fde68a; }
+    .insight-card.warning::before { background: #f59e0b; }
+    .insight-card.success { background: #ecfdf5; border-color: #a7f3d0; }
+    .insight-card.success::before { background: #10b981; }
+    .insight-card.info    { background: #eff6ff; border-color: #bfdbfe; }
+    .insight-card.info::before    { background: #3b82f6; }
+    .insight-icon { font-size: 20px; margin-bottom: 6px; }
+    .insight-val  { font-size: 22px; font-weight: 900; color: #0f172a; line-height: 1; }
+    .insight-lbl  { font-size: 11px; color: #64748b; font-weight: 600; margin-top: 3px; }
+    .trend-arrow  { font-size: 11px; font-weight: 700; margin-left: 4px; }
+    .trend-up     { color: #059669; }
+    .trend-down   { color: #dc2626; }
+
+    .hard-q-table { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 8px; }
+    .hard-q-table th { text-align: left; padding: 6px 8px; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; color: #94a3b8; border-bottom: 2px solid #f1f5f9; font-weight: 700; }
+    .hard-q-table td { padding: 7px 8px; border-bottom: 1px solid #f8fafc; color: #334155; }
+    .hard-q-table tr:last-child td { border-bottom: none; }
+    .pct-bar { height: 5px; border-radius: 999px; background: #e2e8f0; overflow: hidden; width: 60px; display: inline-block; vertical-align: middle; margin-right: 6px; }
+    .pct-fill { height: 100%; border-radius: 999px; }
+
+    /* FAB */
+    .quick-fab {
+        position: fixed; bottom: 28px; right: 28px; z-index: 500;
+        width: 52px; height: 52px; border-radius: 16px; border: none;
+        background: linear-gradient(135deg, #059669, #10b981); color: #fff;
+        box-shadow: 0 6px 20px rgba(5,150,105,.4); cursor: pointer;
+        display: flex; align-items: center; justify-content: center;
+        transition: transform .2s, box-shadow .2s;
+    }
+    .quick-fab:hover { transform: scale(1.08); box-shadow: 0 8px 28px rgba(5,150,105,.5); }
+    .quick-fab svg { width: 22px; height: 22px; }
+    .fab-menu {
+        position: fixed; bottom: 90px; right: 28px; z-index: 500;
+        background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
+        box-shadow: 0 8px 30px rgba(0,0,0,.12); padding: 8px; display: none;
+        min-width: 180px;
+    }
+    .fab-menu.show { display: block; animation: fabPop .2s ease; }
+    @keyframes fabPop { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
+    .fab-item {
+        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+        border-radius: 10px; font-size: 13px; font-weight: 600; color: #334155;
+        text-decoration: none; transition: background .15s;
+    }
+    .fab-item:hover { background: #f0fdf4; color: #059669; }
+    .fab-item svg { width: 16px; height: 16px; stroke: currentColor; }
+    html[data-theme="dark"] .fab-menu { background: #1e293b; border-color: #334155; }
+    html[data-theme="dark"] .fab-item:hover { background: #334155; color: #34d399; }
+    html[data-theme="dark"] .insight-card.warning { background: rgba(245,158,11,.1); }
+    html[data-theme="dark"] .insight-card.success { background: rgba(16,185,129,.1); }
+    html[data-theme="dark"] .insight-card.info    { background: rgba(59,130,246,.1); }
+    html[data-theme="dark"] .hard-q-table th { border-bottom-color: #334155; color: #94a3b8; }
+    html[data-theme="dark"] .hard-q-table td  { border-bottom-color: #334155; color: #e2e8f0; }
+
     /* Dark Mode Overrides */
     [data-theme="dark"] .fan-live-banner {
         background: #1e293b;
@@ -357,7 +455,83 @@ $exams = Database::fetchAll(
     </div>
 <?php endif; ?>
 
-<!-- ONBOARDING CHECKLIST UNTUK SEKOLAH BARU (MUNCUL SAAT PERSIAPAN BELUM LENGKAP 4/4) -->
+<!-- SMART INSIGHTS -->
+<div class="insight-alerts">
+    <?php if ($atRiskStudents > 0): ?>
+    <div class="insight-card warning">
+        <div class="insight-icon">⚠️</div>
+        <div class="insight-val"><?= $atRiskStudents ?></div>
+        <div class="insight-lbl">Siswa Berisiko Gagal (skor &lt;60)</div>
+    </div>
+    <?php endif; ?>
+    <div class="insight-card success">
+        <div class="insight-icon">📈</div>
+        <div class="insight-val">
+            <?= $examsThisWeek ?>
+            <?php if ($examsLastWeek > 0): ?>
+                <span class="trend-arrow trend-<?= $trendDir ?>">
+                    <?= $trendDir === 'up' ? '↑' : '↓' ?> <?= abs($trendPct) ?>%
+                </span>
+            <?php endif; ?>
+        </div>
+        <div class="insight-lbl">Ujian Minggu Ini</div>
+    </div>
+    <?php if (!empty($hardestQs)): ?>
+    <div class="insight-card info" style="flex:2;min-width:300px;">
+        <div style="font-size:11px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🎯 Soal Tersulit</div>
+        <table class="hard-q-table">
+            <thead><tr><th>Soal</th><th>Benar</th><th>Akurasi</th></tr></thead>
+            <tbody>
+            <?php foreach ($hardestQs as $hq):
+                $pct = (float)$hq['pct'];
+                $barColor = $pct >= 60 ? '#10b981' : ($pct >= 40 ? '#f59e0b' : '#ef4444');
+            ?>
+                <tr>
+                    <td title="<?= htmlspecialchars($hq['excerpt']) ?>…"><?= htmlspecialchars(mb_substr($hq['excerpt'],0,28)) ?>…</td>
+                    <td><?= $hq['correct_cnt'] ?>/<?= $hq['total_cnt'] ?></td>
+                    <td>
+                        <div class="pct-bar"><div class="pct-fill" style="width:<?= $pct ?>%;background:<?= $barColor ?>"></div></div>
+                        <span style="font-weight:700;color:<?= $barColor ?>"><?= $pct ?>%</span>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
+</div>
+
+<!-- QUICK ACTION FAB -->
+<button class="quick-fab" id="quickFabBtn" title="Aksi Cepat" onclick="document.getElementById('quickFabMenu').classList.toggle('show')">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+</button>
+<div class="fab-menu" id="quickFabMenu">
+    <a href="monitor.php" class="fab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+        Live Monitor
+    </a>
+    <a href="results.php" class="fab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+        Rekap Nilai
+    </a>
+    <a href="student-cards.php" class="fab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="13" y2="12"/></svg>
+        Cetak Kartu
+    </a>
+    <a href="settings.php" class="fab-item">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        Pengaturan
+    </a>
+</div>
+<script>
+document.addEventListener('click', function(e) {
+    var fab = document.getElementById('quickFabMenu');
+    var btn = document.getElementById('quickFabBtn');
+    if (fab && btn && !fab.contains(e.target) && !btn.contains(e.target)) fab.classList.remove('show');
+});
+</script>
+
+
 <?php if ($onboardingCompleted < 4): ?>
     <div class="fan-onboarding-card" id="cbtOnboardingCard">
         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">

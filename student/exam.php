@@ -17,6 +17,7 @@ $pageKey   = 'exam';
 require_once __DIR__ . '/header.php';
 
 $sessionId = (int)($_GET['session_id'] ?? 0);
+$practiceMode = !empty($_GET['practice']) || !empty($_SESSION['practice_mode']);
 if ($sessionId <= 0) { Helper::redirect('dashboard.php'); exit; }
 
 // Ambil sesi + info ujian
@@ -32,14 +33,60 @@ $session = Database::fetch(
 );
 if (!$session) { Helper::redirect('dashboard.php'); exit; }
 
+// ── Practice Mode: override session with practice data ──
+if ($practiceMode) {
+    // Kembalikan praktik session_id dari sesi untuk lookup practice_sessions
+    $psId = (int)($_SESSION['practice_session_id'] ?? 0);
+    $ps   = Database::fetch(
+        "SELECT ps.*, qb.title as bank_title, s.name as subject_name
+         FROM practice_sessions ps
+         JOIN question_banks qb ON ps.bank_id = qb.id
+         JOIN subjects s ON qb.subject_id = s.id
+         WHERE ps.id = ? AND ps.student_id = ? AND ps.tenant_id = ?",
+        [$psId, (int)$student['id'], $tenantId]
+    );
+    if ($ps) {
+        // Ambil urutan soal dari practice_start (disimpan di DB exam_answers via exam_sessions)
+        $qOrderRaw = Database::fetchColumn(
+            "SELECT question_order FROM exam_sessions WHERE id = ? AND student_id = ?",
+            [$sessionId, (int)$student['id']]
+        );
+        $qOrder = json_decode($qOrderRaw ?: '[]', true) ?: [];
+
+        // Susun session-like array agar template di bawah tetap jalan
+        $session = [
+            'id'                   => $ps['id'],
+            'status'               => 'in_progress',
+            'exam_id'              => 0,
+            'title'                => $ps['bank_title'],
+            'exam_title'           => '[Latihan] ' . $ps['bank_title'],
+            'duration_minutes'     => 0,
+            'max_violations'       => 999,
+            'show_score_immediately' => 1,
+            'subject_name'         => $ps['subject_name'],
+            'bank_title'           => $ps['bank_title'],
+            'end_time'             => null,
+            'extra_time_minutes'   => 0,
+            'total_violations'     => 0,
+            'score'                => $ps['score'] ?? 0,
+            'question_order'       => json_encode($qOrder),
+        ];
+        $remainingSeconds = -1; // tak terbatas
+    } else {
+        Helper::redirect('dashboard.php'); exit;
+    }
+}
+
 if ($session['status'] === 'completed') { Helper::redirect('result.php?session_id=' . $sessionId); exit; }
 
-$effEndTs       = strtotime($session['end_time']) + ((int)$session['extra_time_minutes'] * 60);
-$remainingSeconds = max(0, $effEndTs - time());
-
-// Waktu habis → kumpulkan (finish.php menilai & menyelesaikan)
-if ($session['status'] === 'in_progress' && $remainingSeconds <= 0) {
-    Helper::redirect('finish.php?session_id=' . $sessionId); exit;
+// Skip timer-based expiry for practice mode (already handled above)
+if (!$practiceMode) {
+    $effEndTs       = strtotime($session['end_time']) + ((int)$session['extra_time_minutes'] * 60);
+    $remainingSeconds = max(0, $effEndTs - time());
+    // Waktu habis → kumpulkan (finish.php menilai & menyelesaikan)
+    if ($session['status'] === 'in_progress' && $remainingSeconds <= 0) {
+        Helper::redirect('finish.php?session_id=' . $sessionId); exit;
+    }
 }
 
 // Sesi diblokir pengawas/sistem → tampilkan layar blokir tanpa engine
@@ -145,7 +192,9 @@ $maxViolations   = (int)$session['max_violations'];
 
 <!-- BANNER: pelanggaran / waktu / offline -->
 <div class="violation-banner" id="violationBanner" style="display:none;"><span id="violationText"></span></div>
+<?php if (!$practiceMode): ?>
 <div class="timer-warning-banner" id="timerWarningBanner" style="display:none;"></div>
+<?php endif; ?>
 <div class="offline-banner" id="offlineBanner" style="display:none;">Koneksi terputus — jawaban disimpan lokal dan akan disinkronkan otomatis.</div>
 
 <!-- NAVBAR UJIAN -->
@@ -217,8 +266,12 @@ $maxViolations   = (int)$session['max_violations'];
         <div class="exam-side-info">
             <div>Mata Pelajaran: <b><?= $esc($session['subject_name'] ?? '-') ?></b></div>
             <div>Jumlah Soal: <b><?= $questionCount ?></b></div>
-            <div>Durasi: <b><?= (int)$session['duration_minutes'] ?> menit</b></div>
-            <div>Pelanggaran: <b><?= $violationsNow ?> / <?= $maxViolations ?></b></div>
+            <?php if ($practiceMode): ?>
+                <div style="color:#059669;font-weight:700;">&#128202; Mode Latihan — Tanpa Batas Waktu</div>
+            <?php else: ?>
+                <div>Durasi: <b><?= (int)$session['duration_minutes'] ?> menit</b></div>
+                <div>Pelanggaran: <b><?= $violationsNow ?> / <?= $maxViolations ?></b></div>
+            <?php endif; ?>
         </div>
 
         <!-- Widget webcam: kamera aktif untuk pengawasan, feed disembunyikan dari siswa -->
@@ -303,7 +356,7 @@ $maxViolations   = (int)$session['max_violations'];
     window.engine = new CBTEngine({
         sessionId:        <?= $sessionId ?>,
         tenantId:         <?= (int)$tenantId ?>,
-        examId:           <?= (int)$session['exam_id'] ?>,
+        examId:           <?= (int)$session['exam_id'] ?? 0 ?>,
         questions:        <?= $questionsJson ?>,
         remainingSeconds: <?= $remainingSeconds ?>,
         maxViolations:    <?= $maxViolations ?>,
@@ -311,7 +364,8 @@ $maxViolations   = (int)$session['max_violations'];
         apiUrl:           'api-save.php',
         finishUrl:        'finish.php',
         csrfToken:        <?= json_encode(Helper::csrfToken()) ?>,
-        extraTimeMinutes: <?= (int)$session['extra_time_minutes'] ?>
+        extraTimeMinutes: <?= (int)($session['extra_time_minutes'] ?? 0) ?>,
+        isPractice:       <?= $practiceMode ? 'true' : 'false' ?>
     });
 
     // Tombol layar penuh di topbar portal (jika ikut dirender)
