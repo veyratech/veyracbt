@@ -14,10 +14,16 @@ $pageKey   = 'profile';
 // ── Handle photo upload FIRST (before header renders) ─────────
 $photoMsg    = '';
 $photoError  = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES['photo']['error'] !== UPLOAD_ERR_NO_FILE) {
+$tmpPhotoUrl = null; // path preview sementara untuk sidebar setelah upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
     $file = $_FILES['photo'];
     if ($file['error'] !== UPLOAD_ERR_OK) {
-        $photoError = 'Gagal mengunggah foto.';
+        $photoError = match($file['error']) {
+            UPLOAD_ERR_INI_SIZE  => 'Foto terlalu besar (batas server).',
+            UPLOAD_ERR_FORM_SIZE => 'Ukuran foto melebihi batas 3 MB.',
+            UPLOAD_ERR_PARTIAL   => 'Upload tidak lengkap. Coba lagi.',
+            default              => 'Gagal mengunggah foto (error ' . $file['error'] . ').',
+        };
     } elseif ($file['size'] > 3 * 1024 * 1024) {
         $photoError = 'Ukuran foto maksimal 3 MB.';
     } else {
@@ -34,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES[
             if (!is_dir($destDir)) mkdir($destDir, 0755, true);
             $dest  = $destDir . '/' . $name;
             if (move_uploaded_file($file['tmp_name'], $dest)) {
-                // Remove old photo
+                // Remove old photo file
                 if (!empty($student['photo'])) {
                     foreach ([__DIR__ . '/' . ltrim($student['photo'], '/'),
                              __DIR__ . '/../' . ltrim($student['photo'], '/')] as $old) {
@@ -43,7 +49,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES[
                 }
                 Database::update('students', ['photo' => "assets/uploads/students/$name"],
                     'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
-                // Refresh student data from DB (session doesn't include 'photo')
+                // Refresh session & local var
                 $fresh = Database::fetch(
                     "SELECT s.*, c.name as class_name
                      FROM students s LEFT JOIN classes c ON s.class_id = c.id
@@ -55,6 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES[
                     $_SESSION['auth_user'] = $fresh;
                     $student = $fresh;
                 }
+                // Simpan path sementara agar sidebar tetap tampil foto baru meski refresh berikutnya gagal
+                $tmpPhotoUrl = '../assets/uploads/students/' . $name;
                 $photoMsg = 'Foto profil berhasil diperbarui!';
             } else {
                 $photoError = 'Gagal menyimpan foto ke server.';
@@ -63,16 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES[
     }
 }
 
-// ── Handle name/email update (runs alongside photo upload) ───
+// ── Handle name/email update ────────────────────────────────
 $successMsg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Helper::verifyCsrf();
-    $newName = trim($_POST['name'] ?? '');
+    $newName  = trim($_POST['name']  ?? '');
     $newEmail = trim($_POST['email'] ?? '');
     if ($newName && $newEmail) {
         Database::update('students', ['name' => $newName, 'email' => $newEmail],
             'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
-        $student = Auth::user();
         $successMsg = 'Profil berhasil diperbarui!';
     }
 }
@@ -86,13 +93,16 @@ $freshAfterPost = Database::fetch(
 );
 if ($freshAfterPost) {
     $freshAfterPost['role'] = 'student';
-    $_SESSION['auth_user'] = $freshAfterPost;
-    $student = $freshAfterPost;
+    $_SESSION['auth_user']  = $freshAfterPost;
+    $student                = $freshAfterPost;
 }
 
-require_once __DIR__ . '/header.php';
-
-$photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
+// Pakai path sementara jika upload baru saja berhasil (mencegah flashfoto lama)
+if ($tmpPhotoUrl && !$photoError) {
+    $photoUrl = $tmpPhotoUrl;
+} else {
+    $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
+}
 ?>
 
 <style>
