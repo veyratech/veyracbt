@@ -11,15 +11,6 @@ require_once __DIR__ . '/bootstrap.php';
 $pageTitle = 'Profil Saya';
 $pageKey   = 'profile';
 
-// ── DEBUG LOGGING (temporary diagnostic) ──────────────────────
-$logFile = __DIR__ . '/../admin/upload-debug.log';
-$logEntry = date('Y-m-d H:i:s') . " | METHOD={$_SERVER['REQUEST_METHOD']} | FILES_COUNT=" . count($_FILES ?? []) . " | ";
-if (!empty($_FILES['photo'])) {
-    $logEntry .= "ERROR=" . ($_FILES['photo']['error'] ?? '?') . " SIZE=" . ($_FILES['photo']['size'] ?? 0) . " MIME=" . (@mime_content_type($_FILES['photo']['tmp_name']) ?: '?') . " TMP=" . $_FILES['photo']['tmp_name'] . " | ";
-}
-file_put_contents($logFile, $logEntry . PHP_EOL, FILE_APPEND);
-// ─────────────────────────────────────────────────────────────
-
 // ── Handle photo upload FIRST (before header renders) ─────────
 $photoMsg    = '';
 $photoError  = '';
@@ -72,9 +63,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['photo']) && $_FILES[
     }
 }
 
-// ── Handle name/email update ────────────────────────────────
+// ── Handle name/email update (runs alongside photo upload) ───
 $successMsg = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_FILES['photo'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Helper::verifyCsrf();
     $newName = trim($_POST['name'] ?? '');
     $newEmail = trim($_POST['email'] ?? '');
@@ -160,23 +151,19 @@ $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : 
                 <div class="photo-overlay">
                     <svg viewBox="0 0 24 24"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
                 </div>
+                <div id="photoBadge" style="display:none;position:absolute;bottom:4px;left:50%;transform:translateX(-50%);background:rgba(2,132,199,.9);color:#fff;font-size:9px;font-weight:800;padding:2px 8px;border-radius:999px;white-space:nowrap;">✓ Foto baru siap disimpan</div>
             </div>
             <input type="file" class="photo-input-hidden" id="photoInput" name="photo" accept="image/jpeg,image/png,image/webp">
-            <div class="photo-hint">Klik foto untuk mengganti &#xB7; Maks 3 MB &#xB7; JPG / PNG / WEBP</div>
+            <div class="photo-hint">Klik foto untuk mengganti &#xB7; Maks 3 MB &#xB7; JPG / PNG / WEBP &#xB7; Klik Simpan setelah memilih</div>
             <?php if ($photoMsg): ?><div class="alert-success">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><?= htmlspecialchars($photoMsg) ?></div><?php endif; ?>
             <?php if ($photoError): ?><div class="alert-danger">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><?= htmlspecialchars($photoError) ?></div><?php endif; ?>
         </div>
 
-        <form method="POST" action="" enctype="multipart/form-data" id="photoForm">
-            <?= Helper::csrfField() ?>
-            <input type="hidden" name="action" value="upload_photo">
-        </form>
-
         <div class="section-title" style="margin-top:20px;">Informasi Pribadi</div>
 
-        <form method="POST" action="">
+        <form method="POST" action="" enctype="multipart/form-data">
             <?= Helper::csrfField() ?>
             <input type="hidden" name="action" value="update_info">
             <div class="field-group">
@@ -197,19 +184,18 @@ $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : 
             </div>
             <?php if ($successMsg): ?><div class="alert-success" style="margin-bottom:14px;">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><?= htmlspecialchars($successMsg) ?></div><?php endif; ?>
-            <button type="submit" class="btn-save">Simpan Perubahan</button>
+            <button type="submit" class="btn-save" style="margin-top:14px;">Simpan Perubahan</button>
         </form>
     </div>
 </div>
 
-<script src="../assets/js/student-portal.js?v=<?= filemtime(__DIR__.'/../assets/js/student-portal.js') ?>&t=<?= time() ?>"></script>
 <script>
 /* CSP-safe: no inline event attributes */
 (function(){
     var input = document.getElementById('photoInput');
     var preview = document.getElementById('photoPreview');
-    var form = document.getElementById('photoForm');
-    if (!input || !preview || !form) return;
+    var badge   = document.getElementById('photoBadge');
+    if (!input || !preview) return;
 
     /* Click anywhere on the avatar circle → open file picker */
     preview.addEventListener('click', function(e){
@@ -217,28 +203,24 @@ $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : 
         input.click();
     });
 
-    /* After user selects a file → validate + preview + submit */
+    /* After user selects a file → validate + live preview only (no auto-submit) */
     input.addEventListener('change', function(){
         if (!input.files || !input.files[0]) return;
         var file = input.files[0];
         if (file.size > 3 * 1024 * 1024) { alert('Ukuran foto maksimal 3 MB.'); input.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/webp'];
         if (!allowed.includes(file.type)) { alert('Format harus JPG, PNG, atau WEBP.'); input.value = ''; return; }
-        /* Disable input to prevent double-submit */
-        input.disabled = true;
-        var submitBtn = form.querySelector('button[type="submit"]');
-        if (submitBtn) submitBtn.disabled = true;
-        /* Live preview */
+        /* Live preview only — do NOT submit yet */
         var reader = new FileReader();
         reader.onload = function(ev){
             var img = document.getElementById('previewImg');
             var initSpan = document.getElementById('photoInit');
             if (img) img.src = ev.target.result;
             else if (initSpan) initSpan.outerHTML = '<img src="' + ev.target.result + '" id="previewImg" alt="Foto" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">';
+            /* Show badge to indicate photo is ready to save */
+            if (badge) badge.style.display = 'block';
         };
         reader.readAsDataURL(file);
-        /* Submit immediately */
-        form.submit();
     });
 })();
 </script>
