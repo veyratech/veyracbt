@@ -783,4 +783,17 @@ class Helper {
             exit;
         }
     }
+
+    public static function cacheBust(string $url): string {
+        if (empty($url) || str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
+            return $url;
+        }
+        // Resolve the physical path from the webroot
+        $webroot = dirname(__DIR__); // core/.. = project root
+        $relativePath = ltrim(str_replace('../', '/', $url), '/');
+        $fullPath = $webroot . '/' . $relativePath;
+        $timestamp = @filemtime($fullPath);
+        $sep = strpos($url, '?') !== false ? '&' : '?';
+        return $url . $sep . 'v=' . ($timestamp !== false ? $timestamp : time());
+    }
 }

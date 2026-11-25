@@ -114,7 +114,7 @@ require_once __DIR__ . '/header.php';
 
                 <div style="display: flex; align-items: center; gap: 18px; margin-bottom: 22px;">
                     <?php if (!empty($previewLogo)): ?>
-                        <img src="<?= htmlspecialchars($previewLogo) ?>" alt="Logo Sekolah" style="width: 72px; height: 72px; object-fit: contain; border-radius: 14px; border: 1px solid var(--border-light); background: #fff;">
+                        <img src="<?= Helper::cacheBust(htmlspecialchars($previewLogo)) ?>" alt="Logo Sekolah" style="width: 72px; height: 72px; object-fit: contain; border-radius: 14px; border: 1px solid var(--border-light); background: #fff;">
                     <?php else: ?>
                         <div style="width: 72px; height: 72px; border-radius: 14px; background: var(--primary-light); color: var(--primary-dark); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 800;">
                             <?= htmlspecialchars(substr((string)($school['name'] ?? ''), 0, 1)) ?>
