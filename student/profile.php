@@ -1,6 +1,7 @@
 <?php
 /**
  * Student Profile Page — dengan Upload Foto Profil (CSP-compliant)
+ * Uses POST-Redirect-GET to prevent stale cached responses.
  */
 $etag = hash('md5', filemtime(__FILE__) . ':' . time());
 header("Cache-Control: no-store, no-cache, must-revalidate, max-age=0");
@@ -11,96 +12,104 @@ require_once __DIR__ . '/bootstrap.php';
 $pageTitle = 'Profil Saya';
 $pageKey   = 'profile';
 
-// ── Handle photo upload FIRST (before header renders) ─────────
-$photoMsg    = '';
-$photoError  = '';
-$tmpPhotoUrl = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_FILES['photo'])) {
-    $file = $_FILES['photo'];
-    if ($file['error'] !== UPLOAD_ERR_OK) {
-        $photoError = match($file['error']) {
-            UPLOAD_ERR_INI_SIZE  => 'Foto terlalu besar (batas server).',
-            UPLOAD_ERR_FORM_SIZE => 'Ukuran foto melebihi batas 3 MB.',
-            UPLOAD_ERR_PARTIAL   => 'Upload tidak lengkap. Coba lagi.',
-            default              => 'Gagal mengunggah foto (error ' . $file['error'] . ').',
-        };
-    } elseif ($file['size'] > 3 * 1024 * 1024) {
-        $photoError = 'Ukuran foto maksimal 3 MB.';
-    } else {
-        $allowed = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
-        $finfo   = finfo_open(FILEINFO_MIME_TYPE);
-        $mime    = finfo_file($finfo, $file['tmp_name']);
-        finfo_close($finfo);
-        if (!isset($allowed[$mime]) || @getimagesize($file['tmp_name']) === false) {
-            $photoError = 'Format foto harus JPG, PNG, atau WEBP.';
+// ── POST-Redirect-GET: handle submission then redirect ────────
+$isPost = ($_SERVER['REQUEST_METHOD'] === 'POST');
+
+if ($isPost) {
+    Helper::verifyCsrf();
+    
+    // ── Handle photo upload ─────────────────────────────────
+    $doRedirect = true;
+    if (!empty($_FILES['photo'])) {
+        $file = $_FILES['photo'];
+        if ($file['error'] !== UPLOAD_ERR_OK) {
+            $msg = match($file['error']) {
+                UPLOAD_ERR_INI_SIZE  => 'Foto terlalu besar (batas server).',
+                UPLOAD_ERR_FORM_SIZE => 'Ukuran foto melebihi batas 3 MB.',
+                UPLOAD_ERR_PARTIAL   => 'Upload tidak lengkap. Coba lagi.',
+                default              => 'Gagal mengunggah foto (error ' . $file['error'] . ').',
+            };
+            Helper::setFlash('danger', $msg);
+            $doRedirect = false;
+        } elseif ($file['size'] > 3 * 1024 * 1024) {
+            Helper::setFlash('danger', 'Ukuran foto maksimal 3 MB.');
+            $doRedirect = false;
         } else {
-            $ext   = $allowed[$mime];
-            $name  = 'stu_' . $tenantId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
-            $destDir = __DIR__ . '/../assets/uploads/students';
-            if (!is_dir($destDir)) mkdir($destDir, 0755, true);
-            $dest  = $destDir . '/' . $name;
-            if (move_uploaded_file($file['tmp_name'], $dest)) {
-                if (!empty($student['photo'])) {
-                    foreach ([__DIR__ . '/' . ltrim($student['photo'], '/'),
-                             __DIR__ . '/../' . ltrim($student['photo'], '/')] as $old) {
-                        if (file_exists($old)) @unlink($old);
-                    }
-                }
-                Database::update('students', ['photo' => "assets/uploads/students/$name"],
-                    'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
-                $fresh = Database::fetch(
-                    "SELECT s.*, c.name as class_name
-                     FROM students s LEFT JOIN classes c ON s.class_id = c.id
-                     WHERE s.id = ? AND s.tenant_id = ?",
-                    [(int)$student['id'], $tenantId]
-                );
-                if ($fresh) {
-                    $fresh['role'] = 'student';
-                    $_SESSION['auth_user'] = $fresh;
-                    $student = $fresh;
-                }
-                $tmpPhotoUrl = '../assets/uploads/students/' . $name;
-                $photoMsg = 'Foto profil berhasil diperbarui!';
+            $allowed = ['image/jpeg'=>'jpg','image/png'=>'png','image/webp'=>'webp'];
+            $finfo   = finfo_open(FILEINFO_MIME_TYPE);
+            $mime    = finfo_file($finfo, $file['tmp_name']);
+            finfo_close($finfo);
+            if (!isset($allowed[$mime]) || @getimagesize($file['tmp_name']) === false) {
+                Helper::setFlash('danger', 'Format foto harus JPG, PNG, atau WEBP.');
+                $doRedirect = false;
             } else {
-                $photoError = 'Gagal menyimpan foto ke server.';
+                $ext   = $allowed[$mime];
+                $name  = 'stu_' . $tenantId . '_' . time() . '_' . bin2hex(random_bytes(4)) . '.' . $ext;
+                $destDir = __DIR__ . '/../assets/uploads/students';
+                if (!is_dir($destDir)) mkdir($destDir, 0755, true);
+                $dest  = $destDir . '/' . $name;
+                if (move_uploaded_file($file['tmp_name'], $dest)) {
+                    if (!empty($student['photo'])) {
+                        foreach ([__DIR__ . '/' . ltrim($student['photo'], '/'),
+                                 __DIR__ . '/../' . ltrim($student['photo'], '/')] as $old) {
+                            if (file_exists($old)) @unlink($old);
+                        }
+                    }
+                    Database::update('students', ['photo' => "assets/uploads/students/$name"],
+                        'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
+                    // Refresh session immediately
+                    $fresh = Database::fetch(
+                        "SELECT s.*, c.name as class_name
+                         FROM students s LEFT JOIN classes c ON s.class_id = c.id
+                         WHERE s.id = ? AND s.tenant_id = ?",
+                        [(int)$student['id'], $tenantId]
+                    );
+                    if ($fresh) {
+                        $fresh['role'] = 'student';
+                        $_SESSION['auth_user'] = $fresh;
+                    }
+                    Helper::setFlash('success', 'Foto profil berhasil diperbarui!');
+                } else {
+                    Helper::setFlash('danger', 'Gagal menyimpan foto ke server.');
+                    $doRedirect = false;
+                }
             }
         }
     }
-}
-
-// ── Handle name/email update ────────────────────────────────
-$successMsg = '';
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    Helper::verifyCsrf();
+    
+    // ── Handle name/email update ────────────────────────────
     $newName  = trim($_POST['name']  ?? '');
     $newEmail = trim($_POST['email'] ?? '');
     if ($newName && $newEmail) {
         Database::update('students', ['name' => $newName, 'email' => $newEmail],
             'id = ? AND tenant_id = ?', [(int)$student['id'], $tenantId]);
-        $successMsg = 'Profil berhasil diperbarui!';
+        Helper::setFlash('success', 'Profil berhasil diperbarui!');
+    }
+    
+    // Redirect to self with unique param to bust any cache
+    if ($doRedirect) {
+        $redirectUrl = 'profile.php?cbt_save=' . time();
+        header("Location: $redirectUrl");
+        exit;
     }
 }
 
-// Refresh $student from DB after any POST so header shows latest data
-$freshAfterPost = Database::fetch(
+// ── Refresh $student from DB (always fresh on GET) ──────────
+$freshStudent = Database::fetch(
     "SELECT s.*, c.name as class_name
      FROM students s LEFT JOIN classes c ON s.class_id = c.id
      WHERE s.id = ? AND s.tenant_id = ?",
     [(int)$student['id'], $tenantId]
 );
-if ($freshAfterPost) {
-    $freshAfterPost['role'] = 'student';
-    $_SESSION['auth_user']  = $freshAfterPost;
-    $student                = $freshAfterPost;
-}
-
-if ($tmpPhotoUrl && !$photoError) {
-    $photoUrl = $tmpPhotoUrl;
-} else {
-    $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
+if ($freshStudent) {
+    $freshStudent['role'] = 'student';
+    $_SESSION['auth_user'] = $freshStudent;
+    $student = $freshStudent;
 }
 
 require_once __DIR__ . '/header.php';
+
+$photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
 ?>
 
 <style>
@@ -468,17 +477,9 @@ require_once __DIR__ . '/header.php';
         <!-- Body -->
         <div class="prof-body">
 
-            <?php if ($photoMsg): ?><div class="alert-success">
+            <?php $flash = Helper::getFlash(); if ($flash): ?><div class="alert-<?= htmlspecialchars($flash['type']) ?>">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <?= htmlspecialchars($photoMsg) ?>
-            </div><?php endif; ?>
-            <?php if ($photoError): ?><div class="alert-danger">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
-                <?= htmlspecialchars($photoError) ?>
-            </div><?php endif; ?>
-            <?php if ($successMsg): ?><div class="alert-success">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                <?= htmlspecialchars($successMsg) ?>
+                <?= htmlspecialchars($flash['message']) ?>
             </div><?php endif; ?>
 
             <form method="POST" action="" enctype="multipart/form-data" id="profForm">
