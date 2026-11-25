@@ -318,3 +318,5 @@
 18:15:07 | LOGIN | SID='' AUTH=false KEY=[]
 18:15:07 | LOGIN ATTEMPT | tenant=1 nis=2024001
 18:15:07 | LOGIN RESULT | result=true sid=ea076b10a6f5ac7435ef4619e9bcfc2a
+23:17:29 | LOGIN | SID='' AUTH=false KEY=[]
+23:17:50 | LOGIN | SID='' AUTH=false KEY=[tenant_id,tenant_code,tenant_name,tenant_slug,csrf_token]
