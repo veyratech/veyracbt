@@ -11,6 +11,15 @@ require_once __DIR__ . '/bootstrap.php';
 $pageTitle = 'Profil Saya';
 $pageKey   = 'profile';
 
+// ── DEBUG LOGGING (temporary diagnostic) ──────────────────────
+$logFile = __DIR__ . '/../admin/upload-debug.log';
+$logEntry = date('Y-m-d H:i:s') . " | METHOD={$_SERVER['REQUEST_METHOD']} | FILES_COUNT=" . count($_FILES ?? []) . " | ";
+if (!empty($_FILES['photo'])) {
+    $logEntry .= "ERROR=" . ($_FILES['photo']['error'] ?? '?') . " SIZE=" . ($_FILES['photo']['size'] ?? 0) . " MIME=" . (@mime_content_type($_FILES['photo']['tmp_name']) ?: '?') . " TMP=" . $_FILES['photo']['tmp_name'] . " | ";
+}
+file_put_contents($logFile, $logEntry . PHP_EOL, FILE_APPEND);
+// ─────────────────────────────────────────────────────────────
+
 // ── Handle photo upload FIRST (before header renders) ─────────
 $photoMsg    = '';
 $photoError  = '';
@@ -215,6 +224,10 @@ $photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : 
         if (file.size > 3 * 1024 * 1024) { alert('Ukuran foto maksimal 3 MB.'); input.value = ''; return; }
         var allowed = ['image/jpeg','image/png','image/webp'];
         if (!allowed.includes(file.type)) { alert('Format harus JPG, PNG, atau WEBP.'); input.value = ''; return; }
+        /* Disable input to prevent double-submit */
+        input.disabled = true;
+        var submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) submitBtn.disabled = true;
         /* Live preview */
         var reader = new FileReader();
         reader.onload = function(ev){
