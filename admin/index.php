@@ -10,6 +10,8 @@ require_once __DIR__ . '/header.php';
 
 $tenantId = (int)$school['id'];
 $studentQuota = (int)($school['student_quota'] ?? 0);
+// CSRF token for bulk delete actions on this page
+$_csrfToken = Helper::csrfToken();
 
 // 1. Ambil statistik global tenant
 $totalStudents = (int)Database::fetchColumn("SELECT COUNT(*) FROM students WHERE tenant_id = ?", [$tenantId]);
@@ -106,6 +108,45 @@ $exams = Database::fetchAll(
      LIMIT 10",
     [$tenantId]
 );
+
+// ── Bulk Delete Academic Data (POST handler) ────────────────────
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'clear_all') {
+    Helper::verifyCsrf();
+    $type = $_POST['type'] ?? '';
+    try {
+        switch ($type) {
+            case 'students':
+                // Cascade: remove exam_sessions + answers before students
+                Database::query("DELETE es FROM exam_sessions es JOIN students st ON es.student_id=st.id WHERE st.tenant_id=?", [$tenantId]);
+                Database::delete('exam_answers', 'session_id IN (SELECT id FROM exam_sessions WHERE tenant_id=?)', [$tenantId]);
+                Database::delete('students', 'tenant_id = ?', [$tenantId]);
+                break;
+            case 'question-banks':
+                Database::delete('questions', 'bank_id IN (SELECT id FROM question_banks WHERE tenant_id=?)', [$tenantId]);
+                Database::delete('question_banks', 'tenant_id = ?', [$tenantId]);
+                break;
+            case 'exams':
+                Database::delete('exam_broadcasts', 'exam_id IN (SELECT id FROM exams WHERE tenant_id=?)', [$tenantId]);
+                Database::delete('exam_sessions', 'tenant_id = ?', [$tenantId]);
+                Database::delete('exam_answers', 'session_id IN (SELECT id FROM exam_sessions WHERE tenant_id=?)', [$tenantId]);
+                Database::delete('exams', 'tenant_id = ?', [$tenantId]);
+                break;
+            case 'results':
+                Database::delete('exam_sessions', 'tenant_id = ? AND status = "completed"', [$tenantId]);
+                Database::delete('exam_answers', 'session_id IN (SELECT id FROM exam_sessions WHERE tenant_id=? AND status="completed")', [$tenantId]);
+                break;
+            default:
+                throw new InvalidArgumentException('Invalid type');
+        }
+        Helper::setFlash('success', "Data {$type} berhasil dihapus semua.");
+    } catch (Throwable $e) {
+        error_log('[index clear_all] Error: ' . $e->getMessage());
+        Helper::setFlash('danger', 'Gagal menghapus data: ' . $e->getMessage());
+    }
+    header('Location: index.php?cleared=' . time());
+    exit;
+}
+
 
 // ── Smart Insights ───────────────────────────────────────
 $_lastWeekStart = date('Y-m-d', strtotime('-7 days'));
@@ -622,72 +663,88 @@ document.addEventListener('click', function(e) {
 
 <div class="fan-kpi-grid">
     <!-- 1. Data Siswa -->
-    <a href="students.php" class="fan-kpi-card fan-kpi-green" style="text-decoration: none;">
-        <div class="fan-kpi-top">
-            <div>
-                <div class="fan-kpi-info-label">Peserta Didik Terdaftar</div>
-                <div class="fan-kpi-info-val" id="kpi-students"><?= number_format($totalStudents, 0, ',', '.') ?></div>
-            </div>
-            <div class="fan-kpi-icon-pill">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
-            </div>
+    <div class="fan-kpi-card fan-kpi-green" style="text-decoration: none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <a href="students.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
+                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Peserta Didik Terdaftar</div>
+                <div class="fan-kpi-info-val" id="kpi-students" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalStudents, 0, ',', '.') ?></div>
+            </a>
+            <?php if ($totalStudents > 0): ?>
+            <button type="button" onclick="confirmClear('students',<?= $totalStudents ?>)" 
+                    style="background:none;border:1px solid #fecaca;color:#ef4444;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+                    title="Hapus semua data siswa">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+            <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub">
+        <div class="fan-kpi-sub" style="margin-top:auto;">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;"></span>
             <span><b><?= number_format($activeStudents, 0, ',', '.') ?> aktif</b><?= $studentQuota > 0 ? ' dari kuota ' . number_format($studentQuota, 0, ',', '.') : '' ?></span>
         </div>
-    </a>
+    </div>
 
     <!-- 2. Bank Soal -->
-    <a href="question-banks.php" class="fan-kpi-card fan-kpi-purple" style="text-decoration: none;">
-        <div class="fan-kpi-top">
-            <div>
-                <div class="fan-kpi-info-label">Butir Soal Tersimpan</div>
-                <div class="fan-kpi-info-val" id="kpi-questions"><?= number_format($totalQuestions, 0, ',', '.') ?></div>
-            </div>
-            <div class="fan-kpi-icon-pill">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
-            </div>
+    <div class="fan-kpi-card fan-kpi-purple" style="text-decoration: none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <a href="question-banks.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
+                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Butir Soal Tersimpan</div>
+                <div class="fan-kpi-info-val" id="kpi-questions" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalQuestions, 0, ',', '.') ?></div>
+            </a>
+            <?php if ($totalQuestions > 0): ?>
+            <button type="button" onclick="confirmClear('question-banks',<?= $totalQuestions ?>)" 
+                    style="background:none;border:1px solid #c4b5fd;color:#7c3aed;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+                    title="Hapus semua soal dan bank soal">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+            <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub">
+        <div class="fan-kpi-sub" style="margin-top:auto;">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#6366f1;"></span>
             <span><b><?= number_format($totalBanks, 0, ',', '.') ?> bank soal</b> &bull; <?= number_format($totalSubjects, 0, ',', '.') ?> mapel</span>
         </div>
-    </a>
+    </div>
 
     <!-- 3. Jadwal Ujian -->
-    <a href="exams.php" class="fan-kpi-card fan-kpi-pink" style="text-decoration: none;">
-        <div class="fan-kpi-top">
-            <div>
-                <div class="fan-kpi-info-label">Jadwal Ujian CBT</div>
-                <div class="fan-kpi-info-val" id="kpi-exams"><?= number_format($totalExams, 0, ',', '.') ?></div>
-            </div>
-            <div class="fan-kpi-icon-pill">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-            </div>
+    <div class="fan-kpi-card fan-kpi-pink" style="text-decoration: none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <a href="exams.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
+                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Jadwal Ujian CBT</div>
+                <div class="fan-kpi-info-val" id="kpi-exams" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalExams, 0, ',', '.') ?></div>
+            </a>
+            <?php if ($totalExams > 0): ?>
+            <button type="button" onclick="confirmClear('exams',<?= $totalExams ?>)" 
+                    style="background:none;border:1px solid #fecdd3;color:#e11d48;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+                    title="Hapus semua jadwal ujian">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+            <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub">
+        <div class="fan-kpi-sub" style="margin-top:auto;">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:<?= $activeExamsCount > 0 ? '#10b981' : '#0284c7' ?>;"></span>
             <span><b><?= number_format($activeExamsCount, 0, ',', '.') ?> ujian</b> sedang berlangsung</span>
         </div>
-    </a>
+    </div>
 
     <!-- 4. Sesi Selesai -->
-    <a href="results.php" class="fan-kpi-card fan-kpi-orange" style="text-decoration: none;">
-        <div class="fan-kpi-top">
-            <div>
-                <div class="fan-kpi-info-label">Sesi Ujian Selesai</div>
-                <div class="fan-kpi-info-val" id="kpi-completed"><?= number_format($completedSessions, 0, ',', '.') ?></div>
-            </div>
-            <div class="fan-kpi-icon-pill">
-                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            </div>
+    <div class="fan-kpi-card fan-kpi-orange" style="text-decoration: none;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+            <a href="results.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
+                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Sesi Ujian Selesai</div>
+                <div class="fan-kpi-info-val" id="kpi-completed" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($completedSessions, 0, ',', '.') ?></div>
+            </a>
+            <?php if ($completedSessions > 0): ?>
+            <button type="button" onclick="confirmClear('results',<?= $completedSessions ?>)" 
+                    style="background:none;border:1px solid #fed7aa;color:#c2410c;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+                    title="Hapus semua hasil ujian selesai">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            </button>
+            <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub">
+        <div class="fan-kpi-sub" style="margin-top:auto;">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;"></span>
             <span>Rata-rata nilai: <b><?= $totalScored > 0 ? $avgTenantScore : '0' ?></b></span>
         </div>
-    </a>
+    </div>
 </div>
 
 <!-- SECTION 2: CHARTS (AKTIVITAS UJIAN DUAL BAR + DISTRIBUSI NILAI DONUT) -->
@@ -950,6 +1007,8 @@ function fallbackCopy(text, callback) {
 }
 
 // Dynamic Time tab toggle interactions & stats fetch
+document.addEventListener('DOMContentLoaded', function() {
+    window.__csrf = <?= json_encode($_csrfToken) ?>;
 document.querySelectorAll('.fan-time-tab').forEach(function(tab) {
     tab.addEventListener('click', function() {
         const range = tab.getAttribute('data-range') || '7d';
@@ -1041,6 +1100,30 @@ document.querySelectorAll('.fan-time-tab').forEach(function(tab) {
             });
     });
 });
+
+/* ── Bulk Delete Academic Data Confirmation ─────────────────── */
+function confirmClear(type, count) {
+    var labels = {
+        'students':       'semua data peserta didik',
+        'question-banks': 'semua butir soal & bank soal',
+        'exams':          'semua jadwal ujian CBT',
+        'results':        'semua hasil ujian yang sudah selesai'
+    };
+    if (!confirm(
+        'Anda akan menghapus ' + count.toLocaleString('id-ID') + ' baris data.\n\n'
+        + 'Apakah Anda yakin ingin menghapus ' + (labels[type] || type) + '?\n'
+        + 'Tindakan ini TIDAK DAPAT dibatalkan.'
+    )) return;
+    var form = document.createElement('form');
+    form.method = 'POST';
+    form.action = window.location.pathname;
+    form.innerHTML =
+        '<input name="_csrf"      type="hidden" value="' + window.__csrf + '">' +
+        '<input name="action"     type="hidden" value="clear_all">' +
+        '<input name="type"       type="hidden" value="' + type + '">';
+    document.body.appendChild(form);
+    form.submit();
+}
 </script>
 
 <?php require_once __DIR__ . '/footer.php'; ?>
