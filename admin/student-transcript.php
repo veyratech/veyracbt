@@ -1196,7 +1196,7 @@ $totalClassStudentsCount = count($studentsToPrint);
                         <div class="kop-text">
                             <div class="kop-instansi">PEMERINTAH PROVINSI DAERAH KHUSUS &bull; DINAS PENDIDIKAN</div>
                             <h1 class="kop-sekolah"><?= strtoupper(htmlspecialchars($school['name'] ?? 'CBT Online')) ?></h1>
-                            <div class="kop-alamat"><?= htmlspecialchars($school['address']) ?> &bull; Telp: <?= htmlspecialchars($school['phone'] ?? '-') ?></div>
+                            <div class="kop-alamat"><?= htmlspecialchars($school['address'] ?? '-') ?> &bull; Telp: <?= htmlspecialchars($school['phone'] ?? '-') ?></div>
                             <div class="kop-kontak">NPSN / KODE: <?= htmlspecialchars($school['code']) ?> &bull; Laman CBT: <?= htmlspecialchars($_SERVER['HTTP_HOST'] ?? 'cbt-online.sch.id') ?></div>
                         </div>
                     </div>

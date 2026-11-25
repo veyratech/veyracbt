@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Upload logo (opsional) — update DB langsung agar tidak tercampur dengan field lain
         if (!empty($_FILES['logo']['tmp_name']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
             $file = $_FILES['logo'];
-            if ($file['size'] > 1024 * 1024) {
+            if ($file['size'] > 5 * 1024 * 1024) {
                 Helper::setFlash('danger', 'Ukuran logo maksimal 5 MB.');
                 Helper::redirect('admin/settings.php');
             }
@@ -121,7 +121,7 @@ require_once __DIR__ . '/header.php';
                         </div>
                     <?php endif; ?>
                     <div class="form-group" style="flex: 1; margin-bottom: 0;">
-                        <label class="form-label">Logo Sekolah (maks 1 MB: JPG, PNG, WEBP)</label>
+                        <label class="form-label">Logo Sekolah (maks 5 MB: JPG, PNG, WEBP)</label>
                         <input type="file" name="logo" class="form-control" accept="image/jpeg,image/png,image/webp">
                     </div>
                 </div>
