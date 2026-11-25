@@ -663,88 +663,88 @@ document.addEventListener('click', function(e) {
 
 <div class="fan-kpi-grid">
     <!-- 1. Data Siswa -->
-    <div class="fan-kpi-card fan-kpi-green" style="text-decoration: none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <a href="students.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
-                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Peserta Didik Terdaftar</div>
-                <div class="fan-kpi-info-val" id="kpi-students" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalStudents, 0, ',', '.') ?></div>
-            </a>
+    <a href="students.php" class="fan-kpi-card fan-kpi-green" style="text-decoration: none; position: relative;">
+        <div class="fan-kpi-top">
+            <div>
+                <div class="fan-kpi-info-label">Peserta Didik Terdaftar</div>
+                <div class="fan-kpi-info-val" id="kpi-students"><?= number_format($totalStudents, 0, ',', '.') ?></div>
+            </div>
             <?php if ($totalStudents > 0): ?>
-            <button type="button" onclick="confirmClear('students',<?= $totalStudents ?>)" 
-                    style="background:none;border:1px solid #fecaca;color:#ef4444;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+            <button type="button" onclick="event.stopPropagation();confirmClear('students',<?= $totalStudents ?>)"
+                    style="background:none;border:1px solid #fecaca;color:#ef4444;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
                     title="Hapus semua data siswa">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             </button>
             <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub" style="margin-top:auto;">
+        <div class="fan-kpi-sub">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#10b981;"></span>
             <span><b><?= number_format($activeStudents, 0, ',', '.') ?> aktif</b><?= $studentQuota > 0 ? ' dari kuota ' . number_format($studentQuota, 0, ',', '.') : '' ?></span>
         </div>
-    </div>
+    </a>
 
     <!-- 2. Bank Soal -->
-    <div class="fan-kpi-card fan-kpi-purple" style="text-decoration: none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <a href="question-banks.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
-                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Butir Soal Tersimpan</div>
-                <div class="fan-kpi-info-val" id="kpi-questions" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalQuestions, 0, ',', '.') ?></div>
-            </a>
+    <a href="question-banks.php" class="fan-kpi-card fan-kpi-purple" style="text-decoration: none; position: relative;">
+        <div class="fan-kpi-top">
+            <div>
+                <div class="fan-kpi-info-label">Butir Soal Tersimpan</div>
+                <div class="fan-kpi-info-val" id="kpi-questions"><?= number_format($totalQuestions, 0, ',', '.') ?></div>
+            </div>
             <?php if ($totalQuestions > 0): ?>
-            <button type="button" onclick="confirmClear('question-banks',<?= $totalQuestions ?>)" 
-                    style="background:none;border:1px solid #c4b5fd;color:#7c3aed;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+            <button type="button" onclick="event.stopPropagation();confirmClear('question-banks',<?= $totalQuestions ?>)"
+                    style="background:none;border:1px solid #c4b5fd;color:#7c3aed;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
                     title="Hapus semua soal dan bank soal">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             </button>
             <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub" style="margin-top:auto;">
+        <div class="fan-kpi-sub">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#6366f1;"></span>
             <span><b><?= number_format($totalBanks, 0, ',', '.') ?> bank soal</b> &bull; <?= number_format($totalSubjects, 0, ',', '.') ?> mapel</span>
         </div>
-    </div>
+    </a>
 
     <!-- 3. Jadwal Ujian -->
-    <div class="fan-kpi-card fan-kpi-pink" style="text-decoration: none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <a href="exams.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
-                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Jadwal Ujian CBT</div>
-                <div class="fan-kpi-info-val" id="kpi-exams" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($totalExams, 0, ',', '.') ?></div>
-            </a>
+    <a href="exams.php" class="fan-kpi-card fan-kpi-pink" style="text-decoration: none; position: relative;">
+        <div class="fan-kpi-top">
+            <div>
+                <div class="fan-kpi-info-label">Jadwal Ujian CBT</div>
+                <div class="fan-kpi-info-val" id="kpi-exams"><?= number_format($totalExams, 0, ',', '.') ?></div>
+            </div>
             <?php if ($totalExams > 0): ?>
-            <button type="button" onclick="confirmClear('exams',<?= $totalExams ?>)" 
-                    style="background:none;border:1px solid #fecdd3;color:#e11d48;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+            <button type="button" onclick="event.stopPropagation();confirmClear('exams',<?= $totalExams ?>)"
+                    style="background:none;border:1px solid #fecdd3;color:#e11d48;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
                     title="Hapus semua jadwal ujian">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             </button>
             <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub" style="margin-top:auto;">
+        <div class="fan-kpi-sub">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:<?= $activeExamsCount > 0 ? '#10b981' : '#0284c7' ?>;"></span>
             <span><b><?= number_format($activeExamsCount, 0, ',', '.') ?> ujian</b> sedang berlangsung</span>
         </div>
-    </div>
+    </a>
 
     <!-- 4. Sesi Selesai -->
-    <div class="fan-kpi-card fan-kpi-orange" style="text-decoration: none;">
-        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-            <a href="results.php" style="text-decoration:none;color:inherit;flex:1;min-width:0;">
-                <div class="fan-section-heading" style="font-size:11px;letter-spacing:.5px;margin-bottom:4px;">Sesi Ujian Selesai</div>
-                <div class="fan-kpi-info-val" id="kpi-completed" style="font-size:26px;font-weight:900;line-height:1.1;"><?= number_format($completedSessions, 0, ',', '.') ?></div>
-            </a>
+    <a href="results.php" class="fan-kpi-card fan-kpi-orange" style="text-decoration: none; position: relative;">
+        <div class="fan-kpi-top">
+            <div>
+                <div class="fan-kpi-info-label">Sesi Ujian Selesai</div>
+                <div class="fan-kpi-info-val" id="kpi-completed"><?= number_format($completedSessions, 0, ',', '.') ?></div>
+            </div>
             <?php if ($completedSessions > 0): ?>
-            <button type="button" onclick="confirmClear('results',<?= $completedSessions ?>)" 
-                    style="background:none;border:1px solid #fed7aa;color:#c2410c;width:28px;height:28px;border-radius:7px;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-left:8px;" 
+            <button type="button" onclick="event.stopPropagation();confirmClear('results',<?= $completedSessions ?>)"
+                    style="background:none;border:1px solid #fed7aa;color:#c2410c;width:28px;height:28px;border-radius:7px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;"
                     title="Hapus semua hasil ujian selesai">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 6h18"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
             </button>
             <?php endif; ?>
         </div>
-        <div class="fan-kpi-sub" style="margin-top:auto;">
+        <div class="fan-kpi-sub">
             <span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#f59e0b;"></span>
             <span>Rata-rata nilai: <b><?= $totalScored > 0 ? $avgTenantScore : '0' ?></b></span>
         </div>
-    </div>
+    </a>
 </div>
 
 <!-- SECTION 2: CHARTS (AKTIVITAS UJIAN DUAL BAR + DISTRIBUSI NILAI DONUT) -->
