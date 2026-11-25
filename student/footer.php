@@ -33,8 +33,8 @@ $barcodeSvg = "<svg viewBox='0 0 {$xPos} 22' style='height:36px;width:auto;displ
 
 $schoolLogo = !empty($school['logo_url']) ? '../' . ltrim(str_replace('\\', '/', $school['logo_url']), '/') : null;
 if ($schoolLogo && !file_exists(__DIR__ . '/../' . ltrim(str_replace('\\', '/', $school['logo_url']), '/'))) $schoolLogo = null;
-$stuPhoto  = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
-$hasPhoto  = $stuPhoto && file_exists(__DIR__ . $stuPhoto);
+$stuPhoto  = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
+$hasPhoto  = $stuPhoto && file_exists(__DIR__ . '/..' . $stuPhoto);
 $initials  = mb_substr($student['name'] ?? 'S', 0, 1);
 
 // Encode card data as JSON for print button (CSP-safe: no inline JS)

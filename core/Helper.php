@@ -788,10 +788,13 @@ class Helper {
         if (empty($url) || str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
             return $url;
         }
-        // Resolve the physical path from the webroot
+        // Resolve relative URL (like ../assets/...) to absolute filesystem path
         $webroot = dirname(__DIR__); // core/.. = project root
-        $relativePath = ltrim(str_replace('../', '/', $url), '/');
-        $fullPath = $webroot . '/' . $relativePath;
+        // Normalize relative path: strip leading dot-dots and resolve
+        $cleanUrl = preg_replace('#/\.\./#', '/', $url); // ../../a/.. → /a/
+        $cleanUrl = preg_replace('#^\.\./#', '', $cleanUrl); // ../path → path
+        $cleanUrl = preg_replace('#^\.\.#', '', $cleanUrl); // ../../path → path
+        $fullPath = $webroot . '/' . ltrim($cleanUrl, '/');
         $timestamp = @filemtime($fullPath);
         $sep = strpos($url, '?') !== false ? '&' : '?';
         return $url . $sep . 'v=' . ($timestamp !== false ? $timestamp : time());

@@ -137,7 +137,7 @@ $sStudent = htmlspecialchars($student['name'] ?? 'Siswa');
         <div class="sb-profile">
             <div class="sb-avatar">
                 <?php
-                $pu = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
+                $pu = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
                 if ($pu): ?><img src="<?= Helper::cacheBust(htmlspecialchars($pu)) ?>" alt=""><?php else: echo mb_substr($student['name'] ?? 'S', 0, 1); endif; ?>
             </div>
             <div class="sb-name" title="<?= $sStudent ?>"><?= $sStudent ?></div>
@@ -225,7 +225,7 @@ $sStudent = htmlspecialchars($student['name'] ?? 'Siswa');
             <a href="profile.php" class="icon-btn" title="Profil" style="text-decoration:none;">
                 <div style="width:24px;height:24px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0284c7;overflow:hidden;">
                     <?php
-                    $pp = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
+                    $pp = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
                     if ($pp): ?><img src="<?= Helper::cacheBust(htmlspecialchars($pp)) ?>" alt="" style="width:100%;height:100%;object-fit:cover;"><?php else: echo mb_substr($student['name'] ?? '-', 0, 1); endif; ?>
                 </div>
             </a>

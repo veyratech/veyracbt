@@ -92,7 +92,7 @@ if ($freshAfterPost) {
 
 require_once __DIR__ . '/header.php';
 
-$photoUrl = !empty($student['photo']) ? '/' . ltrim($student['photo'], '/') : null;
+$photoUrl = !empty($student['photo']) ? '../' . ltrim($student['photo'], '/') : null;
 ?>
 
 <style>
