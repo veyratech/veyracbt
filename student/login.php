@@ -140,6 +140,7 @@ body{font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:ce
 /* THEME TOGGLE */
 .dm-toggle{position:fixed;top:16px;right:16px;width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:999;backdrop-filter:blur(8px);transition:all .15s;}
 .dm-toggle:hover{transform:scale(1.05);background:rgba(255,255,255,.25);}
+@media(max-width:768px){.dm-toggle{display:none!important;}}
 
 /* RESPONSIVE */
 @media(max-width:860px){.login-card-master{grid-template-columns:1fr;min-height:auto;}.card-left-blue{padding:30px 24px;}.illustration-wrap{max-width:200px;margin:12px auto 0;}.welcome-title{font-size:24px;}.card-right-white{padding:32px 24px;}.login-heading{font-size:24px;}}

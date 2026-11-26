@@ -668,6 +668,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         .splash-loader-bar{height:100%;background:#fff;border-radius:999px;animation:splashLoad 1.8s ease-in-out forwards;}
         @keyframes splashPulse{0%,100%{transform:scale(1);box-shadow:0 8px 32px rgba(0,0,0,.2)}50%{transform:scale(1.05);box-shadow:0 12px 40px rgba(0,0,0,.3)}}
         @keyframes splashLoad{0%{width:0}100%{width:100%}}
+        .dm-toggle{position:fixed;top:16px;right:16px;width:38px;height:38px;border-radius:10px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:18px;z-index:999;backdrop-filter:blur(8px);transition:all .15s;}
+        .dm-toggle:hover{transform:scale(1.05);background:rgba(255,255,255,.25);}
+        @media(max-width:768px){.dm-toggle{display:none!important;}}
     </style>
 </head>
 <body>
