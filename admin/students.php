@@ -332,6 +332,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Helper::setFlash('danger', 'Gagal menghapus data siswa: ' . $e->getMessage());
         }
         Helper::redirect('admin/students.php?page=1');
+
+    } elseif ($action === 'clear_all') {
+        Helper::verifyCsrf();
+        try {
+            // Cascade hapus semua jawaban & sesi ujian milik siswa ini
+            Database::query("DELETE ea FROM exam_answers ea JOIN exam_sessions es ON ea.session_id = es.id WHERE es.tenant_id = ?", [$tenantId]);
+            Database::query("DELETE es FROM exam_sessions es WHERE es.tenant_id = ?", [$tenantId]);
+            Database::delete('students', 'tenant_id = ?', [$tenantId]);
+            Helper::setFlash('success', 'Semua data siswa beserta sesi & jawaban ujian berhasil dihapus.');
+        } catch (Throwable $e) {
+            error_log('[students clear_all] Error: ' . $e->getMessage());
+            Helper::setFlash('danger', 'Gagal menghapus semua siswa: ' . $e->getMessage());
+        }
+        Helper::redirect('admin/students.php?page=1');
     }
     } catch (Throwable $e) {
         error_log('[students] Uncaught POST error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
@@ -520,6 +534,16 @@ require_once __DIR__ . '/header.php';
             <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('modalAddStudent').classList.add('show')">
                 + Tambah Siswa Baru
             </button>
+
+            <?php if ($totalStudents > 0): ?>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus semua <?= number_format($totalStudents, 0, ',', '.') ?> siswa beserta seluruh sesi & jawaban ujian mereka? Tindakan ini tidak dapat dibatalkan.')">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Helper::csrfToken()) ?>">
+                <input type="hidden" name="action" value="clear_all">
+                <button type="submit" class="btn btn-danger btn-sm" title="Hapus semua siswa beserta sesi & jawaban ujian" style="white-space:nowrap;">
+                    🗑 Hapus Semua
+                </button>
+            </form>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card-body" style="padding: 0;">
