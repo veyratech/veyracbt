@@ -1100,6 +1100,7 @@ document.querySelectorAll('.fan-time-tab').forEach(function(tab) {
             });
     });
 });
+});
 
 /* ── Bulk Delete Academic Data Confirmation ─────────────────── */
 function confirmClear(type, count) {
