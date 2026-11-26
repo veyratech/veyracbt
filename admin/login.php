@@ -914,24 +914,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }, 2000);
     }
 
-    /* ── Theme Toggle ──────────────────────── */
+    /* ── Theme Auto-detect (no toggle button) ─── */
     var saved = localStorage.getItem('cbt_theme');
     if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme:dark)').matches)) {
         document.documentElement.setAttribute('data-theme', 'dark');
     }
-    var dmBtn = document.createElement('button');
-    dmBtn.className = 'dm-toggle';
-    dmBtn.id = 'dmToggle';
-    dmBtn.setAttribute('data-toggle-theme', '');
-    dmBtn.setAttribute('aria-label', 'Ganti tema');
-    dmBtn.textContent = '🌙';
-    document.body.appendChild(dmBtn);
-    dmBtn.addEventListener('click', function() {
-        var d = document.documentElement, next = d.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-        d.setAttribute('data-theme', next);
-        localStorage.setItem('cbt_theme', next);
-        this.textContent = next === 'dark' ? '☀️' : '🌙';
-    });
 })();
 </script>
 
