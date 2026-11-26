@@ -1273,6 +1273,7 @@ if (!$schoolInitials) {
                     <a href="../logout.php" class="btn btn-secondary" style="flex: 1; border-radius: 9999px;">Logout</a>
                 </div>
             </div>
+        </div>
 
         <!-- QUICK ACTION FAB -->
         <button class="quick-fab" id="quickFabBtn" title="Aksi Cepat" onclick="document.getElementById('quickFabMenu').classList.toggle('show')">
