@@ -1,18 +1,12 @@
 <?php
 /**
  * Student Login Page — Clean standalone layout (no sidebar)
+ * No school selector needed — auto-detect tenant from NIS.
  */
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Auth.php';
 require_once __DIR__ . '/../core/Tenant.php';
 require_once __DIR__ . '/../core/Helper.php';
-
-// TRACE REQUEST
-$_tf = __DIR__ . '/../_reqtrace.log';
-$_ts = date('H:i:s');
-$_sid = @session_id();
-$_auth = 'N/A'; try { $_auth = var_export(Auth::check(), true); } catch (\Throwable $_e) {}
-file_put_contents($_tf, "$_ts | LOGIN | SID='$_sid' AUTH=$_auth KEY=[" . implode(',', array_keys($_SESSION ?? [])) . "]\n", FILE_APPEND | LOCK_EX);
 
 // Already logged in → go to dashboard
 if (Auth::check() && Auth::role() === 'student') {
@@ -21,45 +15,41 @@ if (Auth::check() && Auth::role() === 'student') {
 
 $error   = '';
 $success = '';
-$tenants = Database::fetchAll("SELECT id, name, code FROM tenants WHERE is_active = 1 ORDER BY name ASC");
-$selectedCode = trim($_COOKIE['veyra_cbt_school'] ?? $_GET['tenant'] ?? '');
-$selectedTenant = null;
-foreach ($tenants as $t) {
-    if (($t['code'] ?? '') === $selectedCode) { $selectedTenant = $t; break; }
-}
-if (!$selectedTenant && !empty($tenants)) $selectedTenant = $tenants[0];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nis   = trim($_POST['nis'] ?? '');
-    $pass  = $_POST['password'] ?? '';
-    $code  = trim($_POST['tenant_code'] ?? '');
-    
+    $nis  = trim($_POST['nis'] ?? '');
+    $pass = $_POST['password'] ?? '';
+
     if (!$nis || !$pass) {
         $error = 'NIS dan kata sandi wajib diisi.';
-    } elseif (!$selectedTenant) {
-        $error = 'Pilih sekolah terlebih dahulu.';
     } else {
-        $tenant = Database::fetch(
-            "SELECT id, name, code FROM tenants WHERE code = ? AND is_active = 1 LIMIT 1",
-            [$selectedTenant['code']]
+        // Cari siswa berdasarkan NIS (tanpa perlu pilih sekolah)
+        $student = Database::fetch(
+            "SELECT s.*, t.id as tenant_id, t.name as tenant_name, t.code as tenant_code
+             FROM students s
+             JOIN tenants t ON s.tenant_id = t.id
+             WHERE s.nis = ? AND s.is_active = 1 AND t.is_active = 1
+             LIMIT 1",
+            [$nis]
         );
-        if (!$tenant) {
-            $error = 'Sekolah tidak ditemukan.';
+
+        if (!$student) {
+            $error = 'NIS tidak ditemukan. Pastikan NIS sudah didaftarkan oleh sekolah.';
         } else {
-            // LOG before login attempt
-            file_put_contents($_tf, "$_ts | LOGIN ATTEMPT | tenant=" . $tenant['id'] . " nis=$nis\n", FILE_APPEND | LOCK_EX);
-            $result = Auth::loginStudent((int)$tenant['id'], $nis, $pass);
-            file_put_contents($_tf, "$_ts | LOGIN RESULT | result=" . var_export($result, true) . " sid=" . session_id() . "\n", FILE_APPEND | LOCK_EX);
+            $result = Auth::loginStudent((int)$student['tenant_id'], $nis, $pass);
             if ($result === true) {
-                setcookie('veyra_cbt_school', $tenant['code'], time() + 30*86400, '/');
+                Tenant::setTenant([
+                    'id'    => $student['tenant_id'],
+                    'name'  => $student['tenant_name'],
+                    'code'  => $student['tenant_code'],
+                ]);
+                setcookie('veyra_cbt_school', $student['tenant_code'], time() + 30*86400, '/');
                 Helper::redirect('dashboard.php');
             }
             $error = 'NIS atau kata sandi salah. Coba lagi.';
         }
     }
 }
-
-$schoolName = ($selectedTenant['name'] ?? 'CBT Online');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -76,19 +66,17 @@ $schoolName = ($selectedTenant['name'] ?? 'CBT Online');
         *{box-sizing:border-box;margin:0;padding:0;}
         body{font-family:'Plus Jakarta Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px;}
         
-        .login-wrap { width:100%;max-width:420px; }
+        .login-wrap { width:100%;max-width:400px; }
         .login-card { background:var(--card);border:1px solid var(--border);border-radius:18px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08); }
         .login-head { background:linear-gradient(135deg,#0b63e5 0%,#0ea5e9 60%,#0369a1 100%);padding:28px;color:#fff;text-align:center;position:relative; }
         .login-head::before{content:'';position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:rgba(255,255,255,.07);border-radius:50%;}
         .login-head h1{font-size:20px;font-weight:900;margin-bottom:4px;position:relative;}
         .login-head p{font-size:12px;opacity:.8;position:relative;}
-        .login-school{font-size:11px;opacity:.65;margin-top:6px;font-weight:600;letter-spacing:.5px;text-transform:uppercase;position:relative;}
         .login-body{padding:24px;}
         .fg{margin-bottom:14px;}
         .fl{font-size:12px;font-weight:700;color:var(--text);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px;display:block;}
         .fi{width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:9px;font-size:14px;background:var(--bg);outline:none;font-family:inherit;transition:border-color .15s,color inherit;}
         .fi:focus{border-color:var(--primary);background:var(--card);}
-        select.fi{appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:32px;}
         .btn-login{width:100%;padding:12px;background:var(--primary);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:background .15s;font-family:inherit;}
         .btn-login:hover{background:#084fc2;}
         .alert-box{padding:11px 14px;border-radius:9px;font-size:13px;font-weight:600;margin-bottom:14px;}
@@ -114,7 +102,6 @@ $schoolName = ($selectedTenant['name'] ?? 'CBT Online');
         </div>
         <h1>Portal Siswa</h1>
         <p>Sistem Ujian Online CBT Online</p>
-        <div class="login-school"><?= htmlspecialchars($schoolName) ?></div>
     </div>
     <div class="login-body">
         <?php if ($error): ?>
@@ -125,17 +112,6 @@ $schoolName = ($selectedTenant['name'] ?? 'CBT Online');
         <?php endif; ?>
         
         <form method="POST" action="" autocomplete="on">
-            <div class="fg">
-                <label class="fl">Sekolah</label>
-                <select name="tenant_code" class="fi" required id="tenantSelect">
-                    <?php foreach ($tenants as $t): ?>
-                        <option value="<?= htmlspecialchars($t['code']) ?>" <?= $selectedTenant && $selectedTenant['id'] === $t['id'] ? 'selected' : '' ?>>
-                            <?= htmlspecialchars($t['name']) ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            
             <div class="fg">
                 <label class="fl">NIS (Nomor Induk Siswa)</label>
                 <input type="text" name="nis" class="fi" placeholder="Masukkan NIS" required autocomplete="username" maxlength="30" autofocus>
