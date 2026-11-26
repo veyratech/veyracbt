@@ -138,6 +138,36 @@ console.log('[CBT] Modal submit handlers attached to ' + document.querySelectorA
         }
     }, 10000);
 })();
+
+// ── Page Transition: fade out → navigate → fade in on next load ──
+(function () {
+    var transitioning = false;
+    var mainEl = document.querySelector('.fan-main-content');
+
+    function startExit() {
+        if (!mainEl || transitioning) return;
+        transitioning = true;
+        mainEl.style.animation = 'none';          // break any enter animation
+        mainEl.offsetHeight;                       // force reflow
+        mainEl.style.opacity = '0';
+        mainEl.style.transform = 'translateY(6px)';
+        mainEl.style.transition = 'opacity .2s ease, transform .2s ease';
+        setTimeout(function () { transitioning = false; }, 220);
+    }
+
+    document.addEventListener('click', function (e) {
+        var link = e.target.closest('a[href]');
+        if (!link || !mainEl) return;
+        var href = link.getAttribute('href');
+        // Hanya tangani link internal yang bukan modal / target="_blank" / download / hash-only
+        if (link.hasAttribute('target') || link.hasAttribute('download') || !href || href.startsWith('#') || href.startsWith('javascript:') || href.startsWith('mailto:')) return;
+        // Abaikan jika klik di dalam form atau tombol aksi halaman ini
+        if (link.closest('form') || link.closest('.modal-backdrop')) return;
+        e.preventDefault();
+        startExit();
+        setTimeout(function () { window.location.href = href; }, 230);
+    });
+})();
 </script>
 
 </body>

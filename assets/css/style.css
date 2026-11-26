@@ -3359,22 +3359,6 @@ body.admin-fan-page {
 }
 
 /* Navigation Menu */
-.fan-nav-section-label {
-    font-size: 10px;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
-    color: rgba(167, 243, 208, 0.65);
-    padding: 10px 12px 4px 12px;
-}
-
-.fan-sidebar-nav {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    margin-bottom: 16px;
-}
-
 .fan-nav-item {
     display: flex;
     align-items: center;
@@ -3386,59 +3370,110 @@ body.admin-fan-page {
     font-size: 12.5px;
     font-weight: 600;
     letter-spacing: -0.1px;
-    transition: all 0.18s ease;
+    transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
     border-radius: 12px;
     position: relative;
+    overflow: hidden;
 }
+
+/* Sleek hover glow effect */
+.fan-nav-item::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255,255,255,.12) 0%, transparent 60%);
+    opacity: 0;
+    transition: opacity .22s ease;
+    border-radius: 12px;
+}
+.fan-nav-item:hover::before { opacity: 1; }
 
 .fan-nav-item:hover {
     color: #ffffff;
     background: rgba(255, 255, 255, 0.1);
+    transform: translateX(3px);
 }
 
+/* Active state with sliding indicator */
 .fan-nav-item.active {
     background: #ffffff;
     color: #065f46;
     font-weight: 700;
-    box-shadow: 0 6px 16px rgba(2, 44, 34, 0.22);
+    box-shadow: 0 4px 16px rgba(2, 44, 34, 0.2), 0 0 0 3px rgba(255,255,255,0.15);
+    transform: translateX(3px);
 }
 
-.fan-nav-item.active::before,
+/* Left accent bar on active */
 .fan-nav-item.active::after {
-    display: none;
+    content: '';
+    position: absolute;
+    left: 0; top: 25%; bottom: 25%; width: 3px;
+    background: #059669;
+    border-radius: 0 999px 999px 0;
+    animation: accentSlideIn .3s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes accentSlideIn {
+    from { height: 0; opacity: 0; }
+    to   { height: 50%; opacity: 1; }
 }
 
-.fan-nav-content {
-    display: flex;
-    align-items: center;
-    gap: 11px;
+/* Ripple effect on click */
+.fan-nav-item:active {
+    transform: translateX(3px) scale(0.98);
 }
 
-.fan-nav-icon,
-.fan-nav-svg {
-    width: 17px;
-    height: 17px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-}
-
-.fan-nav-svg {
-    stroke: currentColor;
-    stroke-width: 2;
-    fill: none;
-    stroke-linecap: round;
-    stroke-linejoin: round;
-}
-
-.fan-nav-badge {
-    background: rgba(255, 255, 255, 0.2);
-    color: #ffffff;
-    padding: 1.5px 7px;
-    border-radius: 9999px;
+/* Nav section labels with subtle animation */
+.fan-nav-section-label {
     font-size: 10px;
     font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: rgba(167, 243, 208, 0.65);
+    padding: 10px 12px 4px 12px;
+    animation: labelFadeIn .4s ease both;
+}
+@keyframes labelFadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Staggered nav item entrance */
+.fan-sidebar-nav .fan-nav-item {
+    animation: navItemSlideIn .35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.fan-sidebar-nav .fan-nav-item:nth-child(1) { animation-delay: .05s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(2) { animation-delay: .08s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(3) { animation-delay: .11s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(4) { animation-delay: .14s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(5) { animation-delay: .17s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(6) { animation-delay: .20s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(7) { animation-delay: .23s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(8) { animation-delay: .26s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(9) { animation-delay: .29s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(10) { animation-delay: .32s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(11) { animation-delay: .35s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(12) { animation-delay: .38s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(13) { animation-delay: .41s; }
+.fan-sidebar-nav .fan-nav-item:nth-child(14) { animation-delay: .44s; }
+@keyframes navItemSlideIn {
+    from { opacity: 0; transform: translateX(-10px); }
+    to   { opacity: 1; transform: translateX(0); }
+}
+
+/* ── PAGE TRANSITION ANIMATION ───────────── */
+.page-enter {
+    animation: pageEnter .35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pageEnter {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.page-exit {
+    animation: pageExit .2s ease both;
+}
+@keyframes pageExit {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(6px); }
 }
 
 .fan-nav-item.active .fan-nav-badge {
