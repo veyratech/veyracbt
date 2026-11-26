@@ -192,6 +192,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Helper::setFlash('danger', 'Gagal menghapus data: ' . $e->getMessage());
         }
         Helper::redirect('admin/classes.php?page=1');
+
+    } elseif ($action === 'clear_all') {
+        Helper::verifyCsrf();
+        try {
+            // Cascade delete: sessions + answers before classes
+            Database::query("DELETE es FROM exam_sessions es JOIN students st ON es.student_id = st.id WHERE st.tenant_id = ?", [$tenantId]);
+            Database::query("DELETE ea FROM exam_answers ea JOIN exam_sessions es ON ea.session_id = es.id WHERE es.tenant_id = ?", [$tenantId]);
+            Database::delete('students', 'tenant_id = ?', [$tenantId]);
+            Database::delete('classes', 'tenant_id = ?', [$tenantId]);
+            Helper::setFlash('success', 'Semua kelas dan data terkait (siswa, sesi, jawaban) berhasil dihapus.');
+        } catch (Throwable $e) {
+            error_log('[classes clear_all] Error: ' . $e->getMessage());
+            Helper::setFlash('danger', 'Gagal menghapus semua kelas: ' . $e->getMessage());
+        }
+        Helper::redirect('admin/classes.php?page=1');
     }
     } catch (Throwable $e) {
         error_log('[classes] Uncaught POST error: ' . $e->getMessage() . ' at ' . $e->getFile() . ':' . $e->getLine());
@@ -263,6 +278,16 @@ require_once __DIR__ . '/header.php';
             <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('modalAddClass').classList.add('show')">
                 + Tambah Kelas Baru
             </button>
+
+            <?php if ($totalClasses > 0): ?>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus semua <?= number_format($totalClasses, 0, ',', '.') ?> kelas beserta semua siswa & sesi ujian terkait? Tindakan ini tidak dapat dibatalkan.')">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Helper::csrfToken()) ?>">
+                <input type="hidden" name="action" value="clear_all">
+                <button type="submit" class="btn btn-danger btn-sm" title="Hapus semua kelas, siswa, dan sesi ujian" style="white-space:nowrap;">
+                    🗑 Hapus Semua
+                </button>
+            </form>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card-body" style="padding: 0;">

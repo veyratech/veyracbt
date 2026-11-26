@@ -97,6 +97,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         Database::delete('exams', 'id = :id AND tenant_id = :tenant_id', ['id' => $id, 'tenant_id' => $tenantId]);
         Helper::setFlash('success', 'Jadwal ujian berhasil dihapus.');
         Helper::redirect('admin/exams.php');
+
+    } elseif ($action === 'clear_all') {
+        Helper::verifyCsrf();
+        try {
+            // Cascade: answers → sessions → broadcasts → exams
+            Database::query("DELETE ea FROM exam_answers ea JOIN exam_sessions es ON ea.session_id = es.id WHERE es.tenant_id = ?", [$tenantId]);
+            Database::query("DELETE es FROM exam_sessions es WHERE es.tenant_id = ?", [$tenantId]);
+            Database::delete('exam_broadcasts', 'exam_id IN (SELECT id FROM exams WHERE tenant_id = ?)', [$tenantId]);
+            Database::delete('exams', 'tenant_id = ?', [$tenantId]);
+            Helper::setFlash('success', 'Semua jadwal ujian, sesi, dan jawaban terkait berhasil dihapus.');
+        } catch (Throwable $e) {
+            error_log('[exams clear_all] Error: ' . $e->getMessage());
+            Helper::setFlash('danger', 'Gagal menghapus semua ujian: ' . $e->getMessage());
+        }
+        Helper::redirect('admin/exams.php');
     }
 }
 
@@ -215,6 +230,16 @@ require_once __DIR__ . '/header.php';
         <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('modalAddExam').classList.add('show')">
             + Buat Jadwal Ujian Baru
         </button>
+
+        <?php if ($totalExams > 0): ?>
+        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus semua <?= number_format($totalExams, 0, ',', '.') ?> jadwal ujian beserta seluruh sesi & jawaban? Tindakan ini tidak dapat dibatalkan.')">
+            <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Helper::csrfToken()) ?>">
+            <input type="hidden" name="action" value="clear_all">
+            <button type="submit" class="btn btn-danger btn-sm" title="Hapus semua jadwal ujian, sesi & jawaban" style="white-space:nowrap;">
+                🗑 Hapus Semua
+            </button>
+        </form>
+        <?php endif; ?>
     </div>
     <div class="card-body" style="padding: 0;">
         <div style="padding: 16px 24px;">

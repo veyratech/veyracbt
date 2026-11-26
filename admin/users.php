@@ -285,6 +285,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             Helper::setFlash('success', 'Akun berhasil dihapus.');
         }
         Helper::redirect('admin/users.php');
+
+    } elseif ($action === 'clear_all') {
+        Helper::verifyCsrf();
+        // Hitung non-admin untuk pesan konfirmasi yang akurat
+        $nonAdminCount = (int)Database::fetchColumn(
+            "SELECT COUNT(*) FROM users WHERE tenant_id = ? AND role != 'admin'",
+            [$tenantId]
+        );
+        try {
+            // Nonaktifkan semua user non-admin (keamanan: jangan hapus akun fisik)
+            Database::update('users', ['is_active' => 0], 'tenant_id = ? AND role != :role', [
+                'tenant_id' => $tenantId,
+                'role'      => 'admin',
+            ]);
+            Helper::setFlash('success', "Semua akun guru/proktor ({$nonAdminCount} akun) telah dinonaktifkan. Akun admin tetap tersisa.");
+        } catch (Throwable $e) {
+            error_log('[users clear_all] Error: ' . $e->getMessage());
+            Helper::setFlash('danger', 'Gagal menonaktifkan semua akun: ' . $e->getMessage());
+        }
+        Helper::redirect('admin/users.php');
     }
 }
 
@@ -349,6 +369,16 @@ require_once __DIR__ . '/header.php';
             <button type="button" class="btn btn-primary btn-sm" onclick="document.getElementById('modalAddUser').classList.add('show')">
                 + Buat Akun Baru
             </button>
+
+            <?php if ($totalUsers > 0): ?>
+            <form method="POST" style="display:inline;" onsubmit="return confirm('Nonaktifkan semua akun guru & proktor di sekolah ini? Akun admin tetap aman.\n\nTindakan ini tidak dapat dibatalkan.')">
+                <input type="hidden" name="_csrf" value="<?= htmlspecialchars(Helper::csrfToken()) ?>">
+                <input type="hidden" name="action" value="clear_all">
+                <button type="submit" class="btn btn-danger btn-sm" title="Nonaktifkan semua akun guru & proktor" style="white-space:nowrap;">
+                    🗑 Nonaktifkan Semua
+                </button>
+            </form>
+            <?php endif; ?>
         </div>
     </div>
     <div class="card-body" style="padding: 0;">
