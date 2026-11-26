@@ -656,13 +656,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 font-size: 14px;
             }
         }
+
+        /* ── SPLASH SCREEN ─────────────────────── */
+        .splash-screen{position:fixed;inset:0;z-index:9999;background:linear-gradient(135deg,#059669 0%,#047857 50%,#064e3b 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;transition:opacity .6s ease,visibility .6s ease;}
+        .splash-screen.hide{opacity:0;visibility:hidden;pointer-events:none;}
+        .splash-logo{width:80px;height:80px;background:#fff;border-radius:20px;display:flex;align-items:center;justify-content:center;margin-bottom:20px;animation:splashPulse 1.2s ease-in-out infinite;box-shadow:0 8px 32px rgba(0,0,0,.2);}
+        .splash-logo svg{width:44px;height:44px;color:#059669;}
+        .splash-title{font-family:'Plus Jakarta Sans',sans-serif;font-size:28px;font-weight:900;color:#fff;letter-spacing:-.5px;margin-bottom:6px;}
+        .splash-sub{font-size:13px;color:rgba(255,255,255,.7);font-weight:500;}
+        .splash-loader{margin-top:32px;width:120px;height:3px;background:rgba(255,255,255,.2);border-radius:999px;overflow:hidden;}
+        .splash-loader-bar{height:100%;background:#fff;border-radius:999px;animation:splashLoad 1.8s ease-in-out forwards;}
+        @keyframes splashPulse{0%,100%{transform:scale(1);box-shadow:0 8px 32px rgba(0,0,0,.2)}50%{transform:scale(1.05);box-shadow:0 12px 40px rgba(0,0,0,.3)}}
+        @keyframes splashLoad{0%{width:0}100%{width:100%}}
     </style>
 </head>
 <body>
 
-    <!-- Ambient Glow Orbs -->
-    <div class="ambient-glow-1"></div>
-    <div class="ambient-glow-2"></div>
+<!-- SPLASH SCREEN -->
+<div class="splash-screen" id="splashScreen">
+    <div class="splash-logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+            <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        </svg>
+    </div>
+    <div class="splash-title">Veyra CBT</div>
+    <div class="splash-sub">Panel Guru & Pengajar</div>
+    <div class="splash-loader"><div class="splash-loader-bar"></div></div>
+</div>
+
+<!-- AMBIENT GLOW ORBS -->
+<div class="ambient-glow-1"></div>
+<div class="ambient-glow-2"></div>
 
     <!-- MAIN TWO-COLUMN CARD -->
     <main class="login-card-master">
@@ -876,10 +901,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         });
     }
-})();
-        p.focus();
+
+    /* ── Splash Screen ─────────────────────── */
+    var splash = document.getElementById('splashScreen');
+    if (splash) {
+        setTimeout(function() {
+            splash.classList.add('hide');
+            setTimeout(function(){ splash.style.display = 'none'; }, 600);
+        }, 2000);
     }
-}
+
+    /* ── Theme Toggle ──────────────────────── */
+    var saved = localStorage.getItem('cbt_theme');
+    if (saved === 'dark' || (!saved && matchMedia('(prefers-color-scheme:dark)').matches)) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+    }
+    var dmBtn = document.createElement('button');
+    dmBtn.className = 'dm-toggle';
+    dmBtn.id = 'dmToggle';
+    dmBtn.setAttribute('data-toggle-theme', '');
+    dmBtn.setAttribute('aria-label', 'Ganti tema');
+    dmBtn.textContent = '🌙';
+    document.body.appendChild(dmBtn);
+    dmBtn.addEventListener('click', function() {
+        var d = document.documentElement, next = d.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        d.setAttribute('data-theme', next);
+        localStorage.setItem('cbt_theme', next);
+        this.textContent = next === 'dark' ? '☀️' : '🌙';
+    });
+})();
 </script>
 
 </body>
