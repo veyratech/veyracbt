@@ -17,10 +17,6 @@ if (Auth::check() && in_array(Auth::role(), ['admin', 'teacher'])) {
 }
 
 $activeTenant = Tenant::init();
-$allTenants   = Database::fetchAll("SELECT id, code, name FROM tenants WHERE is_active = 1 ORDER BY name ASC");
-
-// Jika sudah ada tenant aktif (dari subdomain / SSO), sembunyikan dropdown
-$tenantAutoDetected = ($activeTenant !== null);
 
 $ssoLoginUrl = sso()->getLoginUrl();
 $error = '';
@@ -28,49 +24,40 @@ $flash = Helper::getFlash();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     Helper::verifyCsrf();
-    $tenantCode = trim($_POST['tenant_code'] ?? '');
     $username   = trim($_POST['username'] ?? '');
     $password   = trim($_POST['password'] ?? '');
 
-    $tenant = $tenantCode !== '' ? Tenant::findByIdentifier($tenantCode) : null;
-
-    // Fallback cerdas: jika sekolah belum dipilih / berbeda dengan sesi sebelumnya,
-    // cari akun user berdasarkan username/email di seluruh sekolah aktif
     if ($username !== '' && $password !== '') {
-        if ($tenant && Auth::loginTenantUser((int)$tenant['id'], $username, $password)) {
-            Tenant::setTenant($tenant);
-            session_regenerate_id(true);
-            if (Auth::is2faRequired()) {
-                Helper::redirect('../admin/totp-verify.php');
-            }
-            Helper::redirect('index.php');
-        }
-
-        // Cek apakah user berada di tenant lain yang aktif
+        // Cari akun user berdasarkan username/email di SELURUH sekolah aktif
         $candidateUsers = Database::fetchAll(
-            "SELECT u.*, t.code as tenant_code
+            "SELECT u.*, t.id as tenant_id, t.code as tenant_code, t.name as tenant_name
              FROM users u
              JOIN tenants t ON u.tenant_id = t.id
              WHERE (u.username = ? OR u.email = ?) AND u.is_active = 1 AND t.is_active = 1",
             [$username, $username]
         );
+
+        $found = false;
         foreach ($candidateUsers as $cu) {
             if (password_verify($password, $cu['password'])) {
-                $matchedTenant = Tenant::findByIdentifier($cu['tenant_code']);
-                if ($matchedTenant && Auth::loginTenantUser((int)$matchedTenant['id'], $username, $password)) {
-                    Tenant::setTenant($matchedTenant);
+                Tenant::setTenant([
+                    'id'   => $cu['tenant_id'],
+                    'code' => $cu['tenant_code'],
+                    'name' => $cu['tenant_name'],
+                ]);
+                if (Auth::loginTenantUser((int)$cu['tenant_id'], $username, $password)) {
                     session_regenerate_id(true);
                     if (Auth::is2faRequired()) {
                         Helper::redirect('../admin/totp-verify.php');
                     }
                     Helper::redirect('index.php');
                 }
+                $found = true;
+                break;
             }
         }
 
-        if (!$tenant && $tenantCode !== '') {
-            $error = "Sekolah dengan kode '{$tenantCode}' tidak ditemukan atau nonaktif.";
-        } else {
+        if (!$found) {
             $error = 'Username atau kata sandi salah.';
         }
     } else {
@@ -794,42 +781,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="POST" id="loginForm" class="login-form">
                 <?= Helper::csrfField() ?>
 
-                <?php if ($tenantAutoDetected): ?>
-                    <div class="tenant-active-chip" style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
-                        <span>🏫 <strong><?= htmlspecialchars($activeTenant['name']) ?></strong> (<?= htmlspecialchars($activeTenant['code']) ?>)</span>
-                        <a href="?ganti=1" style="font-size: 11.5px; color: #0284c7; text-decoration: underline; margin-left: 10px; font-weight: 600;" title="Klik untuk memilih sekolah lain">Ganti</a>
-                    </div>
-                    <input type="hidden" name="tenant_code" id="tenantCodeInput" value="<?= htmlspecialchars($activeTenant['code']) ?>">
-                <?php else: ?>
-                    <div style="margin-bottom: 16px;">
-                        <div class="input-underline-group" style="margin-bottom: 8px;">
-                            <input type="text" id="schoolSearchInput" class="input-underline-field" placeholder="Ketik nama atau kode sekolah..." autocomplete="off">
-                            <span class="input-underline-icon">
-                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                            </span>
-                        </div>
-                        <div class="input-underline-group">
-                            <select name="tenant_code" id="tenantCodeSelect" class="input-underline-field" required style="cursor: pointer;">
-                                <option value="">Pilih Lembaga / Sekolah...</option>
-                                <?php foreach ($allTenants as $t): ?>
-                                    <option value="<?= htmlspecialchars($t['code']) ?>"
-                                        data-name="<?= htmlspecialchars(strtolower(($t['name'] ?? '') . ' ' . ($t['code'] ?? ''))) ?>"
-                                        <?= ($activeTenant && $activeTenant['code'] === $t['code']) ? 'selected' : '' ?>>
-                                        <?= htmlspecialchars($t['name'] ?? '-') ?> (<?= htmlspecialchars($t['code']) ?>)
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                            <span class="input-underline-icon">
-                                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"></path></svg>
-                            </span>
-                        </div>
-                        <div id="savedSchoolNotice" style="display: none; font-size: 11.5px; color: #0284c7; margin-top: 4px;">
-                            <span>✓ Sekolah terakhir tersimpan otomatis</span>
-                        </div>
-                    </div>
-                <?php endif; ?>
-
-                <!-- Username Underline (Clean placeholder, no hardcoded demo values) -->
+                <!-- Username Underline -->
                 <div class="input-underline-group">
                     <input type="text" name="username" id="usernameInput" class="input-underline-field" placeholder="Username / NIP / Email" required autofocus autocomplete="username">
                     <span class="input-underline-icon">
@@ -840,7 +792,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </span>
                 </div>
 
-                <!-- Password Underline (Clean placeholder, no hardcoded password) -->
+                <!-- Password Underline -->
                 <div class="input-underline-group">
                     <input type="password" name="password" id="passwordInput" class="input-underline-field" placeholder="Password" required autocomplete="current-password">
                     <span class="input-underline-icon">
@@ -853,7 +805,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </span>
                 </div>
 
-                <!-- Action Row: Sign in Button + Remember Password (Matching Image) -->
+                <!-- Action Row -->
                 <div class="action-row">
                     <button type="submit" class="btn-signin">
                         Sign in
@@ -909,84 +861,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         });
     }
 
-    // Tenant Selection & LocalStorage Enhancer for Teachers/Admins
-    var searchInput = document.getElementById('schoolSearchInput');
-    var selectEl = document.getElementById('tenantCodeSelect');
-    var formEl = document.getElementById('loginForm');
-    var savedNotice = document.getElementById('savedSchoolNotice');
-    var activeHiddenInput = document.getElementById('tenantCodeInput');
-
-    // 1. Simpan tenant jika aktif otomatis
-    if (activeHiddenInput && activeHiddenInput.value) {
-        try {
-            localStorage.setItem('cbt_teacher_remembered_tenant', activeHiddenInput.value);
-        } catch (e) {}
-    }
-
-    // 2. Pulihkan tenant dari localStorage jika user tidak sedang klik ?ganti=1
-    if (selectEl) {
-        var isResetting = window.location.search.indexOf('ganti') !== -1;
-        if (!isResetting) {
-            try {
-                var remembered = localStorage.getItem('cbt_teacher_remembered_tenant');
-                if (remembered && (!selectEl.value || selectEl.value === '')) {
-                    for (var i = 0; i < selectEl.options.length; i++) {
-                        if (selectEl.options[i].value === remembered) {
-                            selectEl.selectedIndex = i;
-                            if (savedNotice) savedNotice.style.display = 'block';
-                            break;
-                        }
-                    }
-                }
-            } catch (e) {}
-        }
-
-        // Simpan ke localStorage saat form login dikirim
-        if (formEl) {
-            formEl.addEventListener('submit', function() {
-                if (selectEl.value) {
-                    try {
-                        localStorage.setItem('cbt_teacher_remembered_tenant', selectEl.value);
-                    } catch (e) {}
-                }
-            });
-        }
-
-        // 3. Filter pencarian cepat nama sekolah
-        if (searchInput) {
-            var originalOptions = Array.from(selectEl.options);
-            searchInput.addEventListener('input', function() {
-                var query = this.value.trim().toLowerCase();
-                selectEl.innerHTML = '';
-                var matched = 0;
-                originalOptions.forEach(function(opt) {
-                    var dataText = (opt.dataset && opt.dataset.name) ? opt.dataset.name : opt.text.toLowerCase();
-                    if (opt.value === '' || dataText.indexOf(query) !== -1) {
-                        selectEl.appendChild(opt.cloneNode(true));
-                        if (opt.value !== '') matched++;
-                    }
-                });
-                if (matched === 1) {
-                    for (var j = 0; j < selectEl.options.length; j++) {
-                        if (selectEl.options[j].value !== '') {
-                            selectEl.selectedIndex = j;
-                            break;
-                        }
-                    }
-                }
-            });
-        }
+    // Password visibility toggle only
+    var btn = document.getElementById('togglePwd');
+    var input = document.getElementById('passwordInput');
+    var icon = document.getElementById('eyeIcon');
+    if (btn && input && icon) {
+        btn.addEventListener('click', function() {
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerHTML = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle>';
+            } else {
+                input.type = 'password';
+                icon.innerHTML = '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path>';
+            }
+        });
     }
 })();
-
-function fillDemo(code, user) {
-    var sel = document.getElementById('tenantCodeSelect');
-    if (sel) sel.value = code;
-    var u = document.getElementById('usernameInput');
-    if (u) u.value = user;
-    var p = document.getElementById('passwordInput');
-    if (p) {
-        p.value = 'password';
         p.focus();
     }
 }
