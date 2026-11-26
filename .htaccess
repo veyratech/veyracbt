@@ -26,10 +26,8 @@
     Header set Permissions-Policy "camera=(self), microphone=(), geolocation=(), fullscreen=(self)"
 </IfModule>
 
-# Use custom session directory for this project (absolute path)
-<IfModule mod_php.c>
-    php_value session.save_path "C:/xampp/htdocs/cbtonline/.sessions"
-</IfModule>
+# Session path set via PHP (cross-platform) — see core/session-init.php
+# php_value session.save_path removed: hardcoded Windows path breaks on cPanel Linux
 
 <IfModule mod_rewrite.c>
     RewriteEngine On

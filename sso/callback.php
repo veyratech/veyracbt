@@ -10,6 +10,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../sso_client.php';
+require_once __DIR__ . '/../core/session-init.php';
 require_once __DIR__ . '/../core/Database.php';
 require_once __DIR__ . '/../core/Tenant.php';
 require_once __DIR__ . '/../core/Auth.php';

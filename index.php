@@ -14,6 +14,7 @@ if (php_sapi_name() !== 'cli') {
 }
 
 require_once __DIR__ . '/core/Database.php';
+require_once __DIR__ . '/core/session-init.php';
 require_once __DIR__ . '/core/Auth.php';
 require_once __DIR__ . '/core/Tenant.php';
 require_once __DIR__ . '/core/Helper.php';

@@ -1,3 +1,7 @@
+# Environment — setiap server punya .env sendiri, JANGAN commit
+.env
+!.env.example
+
 # Session files
 .sessions/
 *.session
@@ -11,13 +15,18 @@ logs/
 # Rate limits (generated at runtime)
 storage/rate_limits/
 
-# Uploaded files (not in repo)
+# Uploaded files — per-tenant, bukan bagian dari source code
 assets/uploads/logos/*
+assets/uploads/students/*
+assets/uploads/webcam/*
 !assets/uploads/logos/.gitkeep
+!assets/uploads/students/.gitkeep
+!assets/uploads/webcam/.gitkeep
 
-# Composer
-/vendor/
-composer.lock
+# Composer — JANGAN ignore (shared hosting tidak bisa composer install)
+# vendor/ sudah di-commit agar deploy ke cPanel langsung jalan
+# /vendor/
+# composer.lock
 
 # Node
 /node_modules/
@@ -31,3 +40,10 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+
+# Scratch & debug
+scratch/
+_reqtrace.log
+.test_cj.txt
+.verify_cookies.txt
+$PROFILE.txt

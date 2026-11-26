@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/core/Auth.php';
+require_once __DIR__ . '/core/session-init.php';
 require_once __DIR__ . '/core/Helper.php';
 require_once __DIR__ . '/sso_client.php';
 

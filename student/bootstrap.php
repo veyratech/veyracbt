@@ -11,9 +11,10 @@ if (php_sapi_name() !== 'cli') {
 }
 
 // Require core modules (Auth auto-loads Database/Tenant/Helper internally)
+require_once __DIR__ . '/../core/session-init.php';
 require_once __DIR__ . '/../core/Auth.php';
 
-// Start session if not already started (save_path set via .htaccess)
+// Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     @session_start();
 }
