@@ -356,34 +356,6 @@ $hardestQs = Database::fetchAll(
     .pct-bar { height: 5px; border-radius: 999px; background: #e2e8f0; overflow: hidden; width: 60px; display: inline-block; vertical-align: middle; margin-right: 6px; }
     .pct-fill { height: 100%; border-radius: 999px; }
 
-    /* FAB */
-    .quick-fab {
-        position: fixed; bottom: 28px; right: 28px; z-index: 500;
-        width: 52px; height: 52px; border-radius: 16px; border: none;
-        background: linear-gradient(135deg, #059669, #10b981); color: #fff;
-        box-shadow: 0 6px 20px rgba(5,150,105,.4); cursor: pointer;
-        display: flex; align-items: center; justify-content: center;
-        transition: transform .2s, box-shadow .2s;
-    }
-    .quick-fab:hover { transform: scale(1.08); box-shadow: 0 8px 28px rgba(5,150,105,.5); }
-    .quick-fab svg { width: 22px; height: 22px; }
-    .fab-menu {
-        position: fixed; bottom: 90px; right: 28px; z-index: 500;
-        background: #fff; border: 1px solid #e2e8f0; border-radius: 16px;
-        box-shadow: 0 8px 30px rgba(0,0,0,.12); padding: 8px; display: none;
-        min-width: 180px;
-    }
-    .fab-menu.show { display: block; animation: fabPop .2s ease; }
-    @keyframes fabPop { from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)} }
-    .fab-item {
-        display: flex; align-items: center; gap: 10px; padding: 10px 12px;
-        border-radius: 10px; font-size: 13px; font-weight: 600; color: #334155;
-        text-decoration: none; transition: background .15s;
-    }
-    .fab-item:hover { background: #f0fdf4; color: #059669; }
-    .fab-item svg { width: 16px; height: 16px; stroke: currentColor; }
-    html[data-theme="dark"] .fab-menu { background: #1e293b; border-color: #334155; }
-    html[data-theme="dark"] .fab-item:hover { background: #334155; color: #34d399; }
     html[data-theme="dark"] .insight-card.warning { background: rgba(245,158,11,.1); }
     html[data-theme="dark"] .insight-card.success { background: rgba(16,185,129,.1); }
     html[data-theme="dark"] .insight-card.info    { background: rgba(59,130,246,.1); }
