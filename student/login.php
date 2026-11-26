@@ -138,7 +138,6 @@ body{font-family:'Inter',sans-serif;min-height:100vh;display:flex;align-items:ce
 .footer-note a:hover{text-decoration:underline;}
 
 /* THEME TOGGLE */
-.dm-toggle:hover{transform:scale(1.05);background:rgba(255,255,255,.25);}
 
 /* RESPONSIVE */
 @media(max-width:860px){.login-card-master{grid-template-columns:1fr;min-height:auto;}.card-left-blue{padding:30px 24px;}.illustration-wrap{max-width:200px;margin:12px auto 0;}.welcome-title{font-size:24px;}.card-right-white{padding:32px 24px;}.login-heading{font-size:24px;}}
