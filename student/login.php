@@ -16,6 +16,7 @@ if (Auth::check() && Auth::role() === 'student') {
 
 $error   = '';
 $success = '';
+$flash   = Helper::getFlash();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nis  = trim($_POST['nis'] ?? '');
